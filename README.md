@@ -12,7 +12,7 @@
     ├── build.sh (build script)
     ├── dist
     │   └── linux_info_collector (result executor)
-    └── linux_info_collector.spec (compile..)
+    └── linux_info_collector.spec (spec file)
 ```
 ## Run options
 
