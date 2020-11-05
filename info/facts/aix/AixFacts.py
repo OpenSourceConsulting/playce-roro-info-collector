@@ -1,16 +1,5 @@
 #!/usr/bin/env python2.7
 
-'''
-RORO Migration - AIX Info gatter
-
-Example usage :
-
-./AixFacts.py --source=<Source Host IP> --user=<User> --password=<Password>
-
-'''
-
-__author__ = 'Jinyoung Yeom'
-
 import argparse
 import simplejson as json
 import os
@@ -20,6 +9,8 @@ import struct
 import sys
 import time
 import StringIO
+
+from info.facts.AbstractLinuxFacts import AbstractLinuxFacts
 
 try:
     import paramiko
@@ -34,137 +25,11 @@ ANSI_RE = [
     re.compile(r'\x08.')
 ]
 
-def to_list(val):
-    if isinstance(val, (list, tuple)):
-        return list(val)
-    elif val is not None:
-        return [val]
-    else:
-        return list()
+class AixFacts(AbstractLinuxFacts):
 
-
-class ShellError(Exception):
-
-    def __init__(self, msg, command=None):
-        super(ShellError, self).__init__(msg)
-        self.command = command
-
-
-class SshBase(object):
-    def __init__(self, prompts_re=None, errors_re=None, kickstart=True):
-        self.ssh = None
-        self.kickstart = kickstart
-
-
-    def open(self, host, port=22, username=None, password=None, timeout=10,
-        key_filename=None, pkey=None, look_for_keys=None,
-        allow_agent=False, key_policy="loose"):
-
-        self.ssh = paramiko.SSHClient()
-
-        if key_policy != "ignore":
-            self.ssh.load_system_host_keys()
-            try:
-                self.ssh.load_host_keys(os.path.expanduser('~/.ssh/known_hosts'))
-            except IOError:
-                pass
-
-        if key_policy == "strict":
-            self.ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
-        else:
-            self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        if not look_for_keys:
-            look_for_keys = password is None
-
-        try:
-            self.ssh.connect(
-                host, port=port, username=username, password=password,
-                timeout=timeout, look_for_keys=look_for_keys, pkey=pkey,
-                key_filename=key_filename, allow_agent=allow_agent,
-            )
-
-        except socket.gaierror:
-            raise ShellError("unable to resolve host name")
-        except AuthenticationException:
-            raise ShellError('Unable to authenticate to remote device')
-        except socket.timeout:
-            raise ShellError("timeout trying to connect to remote device")
-        except socket.error:
-            raise ShellError('timeout trying to connect to host')
-
-    def connect(self, params, kickstart=True):
-        host = params.get('host')
-        port = params.get('port') or 22
-
-        username = params.get('username')
-        password = params.get('password')
-        key_filename = params.get('ssh_keyfile') or None
-        timeout = params.get('timeout') or 10
-
-        try:
-            self.open(
-                host=host, port=int(port), username=username, password=password,
-                timeout=timeout, key_filename=key_filename,
-            )
-
-        except ShellError as err:
-            print str(err)
-            sys.exit(2)
-
-        self._connected = True
-
-
-    def run_command(self, command):
-        stdin, stdout, stderr = self.ssh.exec_command(command)
-
-        try:
-            all_out = ''
-            all_err = ''
-
-            stdout = stdout.readlines()
-
-            for line in stdout:
-                all_out = all_out + line
-
-            '''
-            while not stdout.channel.exit_status_ready():
-                # Print stdout data when available
-                if stdout.channel.recv_ready():
-                    # Retrieve the first 1024 bytes
-                    #all_out = stdout.channel.recv(1024)
-                    #all_err = stderr.channel.recv(1024)
-                    all_out = stdout.read()
-                    all_err = stderr.read()
-                    #while stdout.channel.recv_ready():
-                        # Retrieve the next 1024 bytes
-                        #all_out += stdout.channel.recv(1024)
-
-                    #while stderr.channel.recv_ready():
-                        # Retrieve the next 1024 bytes
-                        #all_err += stderr.channel.recv(1024)
-            '''
-        except ShellError as e:
-            print("Failed %s, command : [%s]" % str(e), command)
-            sys.exit(3)
-
-        finally:
-            return all_out
-
-    def run_dump_command(self, params):
-        try:
-            command = ("nohup /bin/dd if=%s bs=%s count=%s | ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s@%s dd of=%s/%s > /tmp/%s_dump.log&"
-                       % (params['device'], "512", params['blockend'], params['target_keyfile'], params['target_user'],
-                          params['target_host'], params['target_path'], params['target_filename'], params['target_filename']))
-
-            self.run_command(command)
-        except ShellError:
-            print("Dump command executing error!!")
-
-    def close(self):
-        self.ssh.close()
-
-class AIX(object):
+    def __init__(self, params):
+        print "Aix Facts generated"
+        AbstractLinuxFacts.__init__(self, params, "AIX")
     """
     AIX-specific subclass of Hardware.
     - memfree_mb
@@ -177,13 +42,7 @@ class AIX(object):
     """
     platform = 'AIX'
 
-    def __init__(self, params, prompts_re=None, errors_re=None, kickstart=True):
-        self.ssh = SshBase(params)
-        self.ssh.connect(params)
-        self.kickstart = kickstart
-        self.facts = {}
-
-    def populate(self):
+    def execute(self):
         try:
             self.get_distribution_AIX()
             self.get_hostname()
@@ -209,16 +68,12 @@ class AIX(object):
             # self.get_firewall()
             self.get_listen_port()
 
+            print self.facts
         except Exception as err:
             print str(err)
 
         finally :
             return self.facts
-
-    def get_results(self):
-        r = json.dumps(self.facts)
-        print r
-        return r
 
     def get_distribution_AIX(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
@@ -704,40 +559,4 @@ class AIX(object):
                     self.facts['listen_port_list'][data[1]][l_port].append(port_info)
                 else:
                     print "get_listen_port, Error, %s file descriptor parsing" % data[0]
-# for main method
-def get_args():
-    '''This function parses and return arguments passed in'''
-    # Assign description to the help doc
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='RORO Migration executor parser')
 
-    # Source server info
-    parser.add_argument('-H', '--host', type=str, help='Source host name or IP', required=True)
-    parser.add_argument('-P', '--port', type=str, help='Source host SSH Port', required=False)
-    parser.add_argument('-u', '--username', type=str, help='User of Source Server', required=True)
-    parser.add_argument('-p', '--password', type=str, help='Password for user', required=True)
-
-    # Array for all arguments passed to script
-    args = parser.parse_args()
-
-    return args
-
-def set_params(args):
-    params = {}
-
-    params['host'] = args.host
-    params['port'] = args.port or 22
-    params['username'] = args.username
-    params['password'] = args.password
-
-    return params
-
-if __name__ == "__main__":
-    args = get_args()
-
-    params = set_params(args)
-
-    aix = AIX(params)
-    aix.populate()
-    aix.get_results()

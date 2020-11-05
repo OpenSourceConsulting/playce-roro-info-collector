@@ -4,6 +4,7 @@
 import argparse
 
 from facts.linux.LinuxFactorGenerator import *
+from facts.aix.AixFacts import *
 from facts.sample.windowsFacts import *
 
 def get_args():
@@ -36,12 +37,14 @@ def set_params(args):
 
   return params
 
+
 def main(params):
   if params['target'] == 'linux':
     module = LinuxFactorGenerator(params)
     module.get_info()
   elif params['target'] == 'unix':
-    print('unix')
+    module = AixFacts(params);
+    module.execute()
   elif params['target'] == 'windows':
     module = WINDOWS(params)
     module.execute()

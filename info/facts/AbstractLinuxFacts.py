@@ -1,7 +1,7 @@
 
 import simplejson as json
 import abc
-from ..ssh.sshBase import *
+from info.facts.ssh.sshBase import *
 
 if sys.version_info >= (3, 4):
   ABC = abc.ABC
@@ -11,7 +11,8 @@ else:
 
 class AbstractLinuxFacts(ABC):
 
-  def __init__(self, params, release):
+
+  def __init__(self, params, release="none"):
     self.ssh = SshBase()
     self.ssh.connect(params)
     self.facts = {"distribution_version": release}

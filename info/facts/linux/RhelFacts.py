@@ -2,7 +2,7 @@ import re
 import struct
 import socket
 
-from AbstractLinuxFacts import AbstractLinuxFacts
+from info.facts.AbstractLinuxFacts import AbstractLinuxFacts
 try:
   import paramiko
   from paramiko.ssh_exception import AuthenticationException
