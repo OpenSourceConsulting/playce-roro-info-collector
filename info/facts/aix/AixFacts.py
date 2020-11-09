@@ -1,16 +1,10 @@
 #!/usr/bin/env python2.7
 
-import argparse
-import simplejson as json
-import os
 import re
 import socket
 import struct
-import sys
-import time
-import StringIO
 
-from info.facts.AbstractLinuxFacts import AbstractLinuxFacts
+from info.facts.AbstractFacts import AbstractFacts
 
 try:
     import paramiko
@@ -25,11 +19,12 @@ ANSI_RE = [
     re.compile(r'\x08.')
 ]
 
-class AixFacts(AbstractLinuxFacts):
+class AixFacts(AbstractFacts):
 
     def __init__(self, params):
-        print "Aix Facts generated"
-        AbstractLinuxFacts.__init__(self, params, "AIX")
+        AbstractFacts.__init__(self, params, "AIX", isSudo=False)
+        self.results = {}
+
     """
     AIX-specific subclass of Hardware.
     - memfree_mb
@@ -73,20 +68,25 @@ class AixFacts(AbstractLinuxFacts):
             print str(err)
 
         finally :
-            return self.facts
+            self.facts["results"] = self.results
+            return self.results
 
     def get_distribution_AIX(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
-        self.facts['distribution_version'] = data[0]
-        self.facts['distribution_release'] = data[1]
+        self.results['distribution_version'] = data[0]
+        self.results['distribution_release'] = data[1]
+
+        self.facts["system_summary"]["distribution_version"] = self.results['distribution_version']
+        self.facts["system_summary"]["distribution_release"] = self.results['distribution_release']
 
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
-        self.facts['hostname'] = out.replace('\n','')
+        self.results['hostname'] = out.replace('\n','')
+        self.facts["system_summary"]["hostname"] = self.results['hostname']
 
     def get_cpu_facts(self):
-        self.facts['processor'] = []
+        self.results['processor'] = []
 
         out = self.ssh.run_command("/usr/sbin/lsdev -Cc processor")
         if out:
@@ -98,18 +98,23 @@ class AixFacts(AbstractLinuxFacts):
                         cpudev = data[0]
                     i += 1
 
-            self.facts['processor_count'] = int(i)
+            self.results['processor_count'] = int(i)
 
             out = self.ssh.run_command("/usr/sbin/lsattr -El " + cpudev + " -a type")
 
 
             data = out.split(' ')
-            self.facts['processor'] = data[1]
+            self.results['processor'] = data[1]
 
             out = self.ssh.run_command("/usr/sbin/lsattr -El " + cpudev + " -a smt_threads")
 
             data = out.split(' ')
-            self.facts['processor_cores'] = int(data[1])
+            self.results['processor_cores'] = int(data[1])
+
+            self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+            self.facts["system_summary"]["processor_cores"] = self.results['processor_cores']
+            self.facts["system_summary"]["processor"] = self.results['processor']
+
 
     def get_memory_facts(self):
         pagesize = 4096
@@ -120,9 +125,11 @@ class AixFacts(AbstractLinuxFacts):
                 pagecount = int(data[0])
             if 'free pages' in line:
                 freecount = int(data[0])
-        self.facts['memtotal_mb'] = pagesize * pagecount // 1024 // 1024
-        self.facts['memfree_mb'] = pagesize * freecount // 1024 // 1024
+        self.results['memtotal_mb'] = pagesize * pagecount // 1024 // 1024
+        self.results['memfree_mb'] = pagesize * freecount // 1024 // 1024
 
+        self.facts["system_summary"]["memtotal_mb"] = self.results['memtotal_mb']
+        self.facts["system_summary"]["memfree_mb"] = self.results['memfree_mb']
         # Get swapinfo.  swapinfo output looks like:
         # Total Paging Space   Percent Used
         #       2048MB               0%
@@ -133,8 +140,10 @@ class AixFacts(AbstractLinuxFacts):
             data = lines[1].split()
             swaptotal_mb = int(data[0].rstrip('MB'))
             percused = int(data[1].rstrip('%'))
-            self.facts['swaptotal_mb'] = swaptotal_mb
-            self.facts['swapfree_mb'] = int(swaptotal_mb * ( 100 - percused ) / 100)
+            self.results['swaptotal_mb'] = swaptotal_mb
+            self.results['swapfree_mb'] = int(swaptotal_mb * ( 100 - percused ) / 100)
+            self.facts["system_summary"]["swaptotal_mb"] = self.results['swaptotal_mb']
+            self.facts["system_summary"]["swaptotal_mb"] = self.results['swaptotal_mb']
 
     def get_kernel(self):
         out = self.ssh.run_command("lslpp -l | grep bos.mp")
@@ -142,38 +151,45 @@ class AixFacts(AbstractLinuxFacts):
         lines = out.splitlines()
         data = lines[0].split()
 
-        self.facts['kernel'] = data[1]
+        self.results['kernel'] = data[1]
+        self.facts["system_summary"]["kernel"] = self.results['kernel']
 
     def get_bitmode(self):
         out = self.ssh.run_command("getconf KERNEL_BITMODE")
-        self.facts['architecture'] = out.replace('\n','')
+        self.results['architecture'] = out.replace('\n','')
+        self.facts["system_summary"]["architecture"] = self.results['architecture']
 
     def get_dmi_facts(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
         data = out.split()
-        self.facts['firmware_version'] = data[1].strip('IBM,')
+        self.results['firmware_version'] = data[1].strip('IBM,')
+        self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
 
         out = self.ssh.run_command("/usr/sbin/lsconf")
         if out:
             for line in out.splitlines():
                 data = line.split(':')
                 if 'Machine Serial Number' in line:
-                    self.facts['product_serial'] = data[1].strip()
+                    self.results['product_serial'] = data[1].strip()
                 if 'LPAR Info' in line:
-                    self.facts['lpar_info'] = data[1].strip()
+                    self.results['lpar_info'] = data[1].strip()
                 if 'System Model' in line:
-                    self.facts['product_name'] = data[1].strip()
+                    self.results['product_name'] = data[1].strip()
+
+            self.facts["system_summary"]["product_serial"] = self.results['product_serial']
+            self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
+            self.facts["system_summary"]["product_name"] = self.results['product_name']
 
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
         if out:
-            self.facts['partitions'] = {}
+            self.results['partitions'] = {}
             regex = re.compile(r'^/dev/', re.IGNORECASE)
             for line in out.splitlines():
                 if regex.match(line):
                     pt = line.split()
-                    self.facts['partitions'][pt[6]] = dict(device = pt[0], fstype = self.get_fs_type(pt[0]), size = pt[1], free = pt[2])
+                    self.results['partitions'][pt[6]] = dict(device = pt[0], fstype = self.get_fs_type(pt[0]), size = pt[1], free = pt[2])
 
     def get_fs_type(self, device):
         short_device_name = device.split('/')[2]
@@ -191,17 +207,17 @@ class AixFacts(AbstractLinuxFacts):
         out = self.ssh.run_command("/usr/sbin/lsvg -l rootvg")
 
         if out:
-            self.facts['extra_partitions'] = {}
+            self.results['extra_partitions'] = {}
             for line in out.splitlines():
                 data = line.split()
                 if data[0] in 'rootvg:' or data[0] in 'LV':
                     continue
 
-                self.facts['extra_partitions'][data[6]] = \
+                self.results['extra_partitions'][data[6]] = \
                     dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'False')
 
                 if data[6] not in root_partitions:
-                    self.facts['extra_partitions'][data[6]] = \
+                    self.results['extra_partitions'][data[6]] = \
                         dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'True')
 
     def get_vgs_facts(self):
@@ -226,9 +242,9 @@ class AixFacts(AbstractLinuxFacts):
         if lsvg_path and xargs_path:
             out = self.ssh.run_command(cmd)
             if out:
-                self.facts['vgs']= {}
+                self.results['vgs']= {}
                 for m in re.finditer(r'(\S+):\n.*FREE DISTRIBUTION(\n(\S+)\s+(\w+)\s+(\d+)\s+(\d+).*)+', out):
-                    self.facts['vgs'][m.group(1)] = []
+                    self.results['vgs'][m.group(1)] = []
                     pp_size = 0
                     cmd = "%s %s" % (lsvg_path,m.group(1))
                     out = self.ssh.run_command(cmd)
@@ -241,7 +257,7 @@ class AixFacts(AbstractLinuxFacts):
                                         'free_pps': n.group(4),
                                         'pp_size': pp_size
                                         }
-                            self.facts['vgs'][m.group(1)].append(pv_info)
+                            self.results['vgs'][m.group(1)].append(pv_info)
 
     def get_users(self):
         # List of users excepted
@@ -250,7 +266,7 @@ class AixFacts(AbstractLinuxFacts):
 
         out = self.ssh.run_command("/usr/bin/cat /etc/passwd | egrep -v '^#'")
         if out:
-            self.facts['users'] = {}
+            self.results['users'] = {}
             for line in out.splitlines():
                 user = line.split(':')
 
@@ -259,7 +275,7 @@ class AixFacts(AbstractLinuxFacts):
                     profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.profile")
                     kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.kshrc")
 
-                    self.facts['users'][user[0]] = {'uid' : user[2],
+                    self.results['users'][user[0]] = {'uid' : user[2],
                                                     'gid' : user[3],
                                                     'homedir' : user[5],
                                                     'shell' : user[6],
@@ -272,13 +288,13 @@ class AixFacts(AbstractLinuxFacts):
 
         out = self.ssh.run_command("/usr/bin/cat /etc/group | egrep -v '^#'")
         if out:
-            self.facts['groups'] = {}
+            self.results['groups'] = {}
             for line in out.splitlines():
                 group = line.split(':')
 
                 # 0:groupname 1: 2:gid 3:users
                 if not group[0] in except_groups:
-                    self.facts['groups'][group[0]] = {'gid' : group[2],
+                    self.results['groups'][group[0]] = {'gid' : group[2],
                                                       'users' : group[3].split(',')
                                                       }
 
@@ -288,11 +304,11 @@ class AixFacts(AbstractLinuxFacts):
         regex = re.compile(r":\n", re.IGNORECASE)
         out = regex.sub(":", tmp_out)
         if out:
-            self.facts['shadow'] = {}
+            self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
                 if user[1] != '*':
-                    self.facts['shadow'][user[0]] = user[1]
+                    self.results['shadow'][user[0]] = user[1]
 
     def get_ulimits(self):
         tmp_out = self.ssh.run_command("/usr/bin/cat /etc/security/limits | egrep -v '^\*|^$'")
@@ -302,28 +318,28 @@ class AixFacts(AbstractLinuxFacts):
         if out:
             regex = re.compile(r' = ', re.IGNORECASE)
 
-            self.facts['ulimits'] = {}
+            self.results['ulimits'] = {}
             for line in out.splitlines():
                 if ":" in line:
                     user = line.split(':')
-                    self.facts['ulimits'][user[0]] = {}
+                    self.results['ulimits'][user[0]] = {}
 
                 if " = " in line:
                     value = line.split(' = ')
-                    self.facts['ulimits'][user[0]][value[0]] = value[1]
+                    self.results['ulimits'][user[0]][value[0]] = value[1]
 
     def get_crontabs(self):
         out = self.ssh.run_command("/usr/bin/find /var/spool/cron/crontabs -type file")
         if out:
-            self.facts['crontabs'] = {}
+            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
-                self.facts['crontabs'][line] = out
+                self.results['crontabs'][line] = out
 
     def get_default_interfaces(self):
         out = self.ssh.run_command('/usr/bin/netstat -nr')
 
-        self.facts['NICs'] = dict(v4 = {}, v6 = {})
+        self.results['NICs'] = dict(v4 = {}, v6 = {})
 
         if out:
             lines = out.splitlines()
@@ -331,11 +347,11 @@ class AixFacts(AbstractLinuxFacts):
                 words = line.split()
                 if len(words) > 1 and words[0] == 'default':
                     if '.' in words[1]:
-                        self.facts['NICs']['v4']['gateway'] = words[1]
-                        self.facts['NICs']['v4']['interface'] = words[5]
+                        self.results['NICs']['v4']['gateway'] = words[1]
+                        self.results['NICs']['v4']['interface'] = words[5]
                     elif ':' in words[1]:
-                        self.facts['NICs']['v6']['gateway'] = words[1]
-                        self.facts['NICs']['v6']['interface'] = words[5]
+                        self.results['NICs']['v6']['gateway'] = words[1]
+                        self.results['NICs']['v6']['interface'] = words[5]
 
     # AIX 'ifconfig -a' does not inform about MTU, so remove current_if['mtu'] here
     def parse_interface_line(self, words):
@@ -450,14 +466,14 @@ class AixFacts(AbstractLinuxFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-        self.facts['interfaces'] = interfaces
+        self.results['interfaces'] = interfaces
 
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
 
         if out:
-            self.facts['processes'] = []
+            self.results['processes'] = []
 
             for line in out.splitlines():
                 if "<defunct>" in line:
@@ -468,21 +484,21 @@ class AixFacts(AbstractLinuxFacts):
                     continue
 
                 if re.match('[0-9]:[0-9][0-9]', data[7]):
-                    #self.facts['processes'][data[8]] = dict(uid = data[0], cmd = data[8:])
-                    self.facts['processes'].append(dict(uid = data[0], cmd = data[8:]))
+                    #self.results['processes'][data[8]] = dict(uid = data[0], cmd = data[8:])
+                    self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
                 elif re.match('[0-9]:[0-9][0-9]', data[6]):
-                    #self.facts['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
-                    self.facts['processes'].append(dict(uid = data[0], cmd = data[7:]))
+                    #self.results['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
+                    self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
         if out:
-            self.facts['kernel_parameters'] = {}
+            self.results['kernel_parameters'] = {}
 
             for line in out.splitlines():
                 data = line.split()
-                self.facts['kernel_parameters'][data[0]] = {
+                self.results['kernel_parameters'][data[0]] = {
                     "value" : data[1],
                     "description" : " ".join(data[2:-1]),
                     "changable" : data[-1]
@@ -491,12 +507,12 @@ class AixFacts(AbstractLinuxFacts):
     def get_timezone(self):
         out = self.ssh.run_command("/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
-            self.facts['timezone'] = out
+            self.results['timezone'] = out
 
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
 
-        self.facts['route_table'] = dict(list=[])
+        self.results['route_table'] = dict(list=[])
 
         dd = out.split('\n\n')
         for idx, data in enumerate(dd):
@@ -512,7 +528,7 @@ class AixFacts(AbstractLinuxFacts):
                     "Iface" : words[5],
                 }
 
-                self.facts['route_table']['list'].append(info)
+                self.results['route_table']['list'].append(info)
 
 
 
@@ -524,14 +540,14 @@ class AixFacts(AbstractLinuxFacts):
         ps_list = self.ssh.run_command("/usr/bin/netstat -Aan | grep LISTEN")
 
         if ps_list:
-            self.facts['listen_port_list'] = {}
+            self.results['listen_port_list'] = {}
 
             for line in ps_list.splitlines():
 
                 data = line.split()
 
-                if not self.facts['listen_port_list'].get(data[1]):
-                    self.facts['listen_port_list'][data[1]] = dict()
+                if not self.results['listen_port_list'].get(data[1]):
+                    self.results['listen_port_list'][data[1]] = dict()
 
                 local_addr, l_port = data[4].rsplit('.', 1)
                 frg_addr, f_port = data[5].rsplit('.', 1)
@@ -555,8 +571,8 @@ class AixFacts(AbstractLinuxFacts):
                         "pid" : pid,
                         "fd" : data[0]
                     }
-                    self.facts['listen_port_list'][data[1]][l_port] = []
-                    self.facts['listen_port_list'][data[1]][l_port].append(port_info)
+                    self.results['listen_port_list'][data[1]][l_port] = []
+                    self.results['listen_port_list'][data[1]][l_port].append(port_info)
                 else:
                     print "get_listen_port, Error, %s file descriptor parsing" % data[0]
 

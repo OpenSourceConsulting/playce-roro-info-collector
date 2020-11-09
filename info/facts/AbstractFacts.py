@@ -1,6 +1,8 @@
 
 import simplejson as json
 import abc
+
+from info.facts.log.LogManager import getLogger
 from info.facts.ssh.sshBase import *
 
 if sys.version_info >= (3, 4):
@@ -9,13 +11,15 @@ else:
   ABC = abc.ABCMeta('ABC', (), {})
 
 
-class AbstractLinuxFacts(ABC):
+class AbstractFacts(ABC):
 
-
-  def __init__(self, params, release="none"):
-    self.ssh = SshBase()
+  def __init__(self, params, release="none", isSudo=True):
+    self.ssh = SshBase(isSudo=isSudo)
     self.ssh.connect(params)
-    self.facts = {"distribution_version": release}
+    self.facts = {};
+    self.facts["results"] = dict(distribution_version=release);
+    self.facts["system_summary"] = dict();
+    self.logger = getLogger(params.get('logDir'))
 
   @abc.abstractmethod
   def get_hostname(self): pass
@@ -84,6 +88,7 @@ class AbstractLinuxFacts(ABC):
   def get_listen_port(self): pass
 
   def get_results(self):
+    self.logger.debug("get Result")
     r = json.dumps(self.facts, indent=2)
     print r
     return r

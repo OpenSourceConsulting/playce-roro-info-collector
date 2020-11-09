@@ -1,5 +1,3 @@
-
-
 from ..ssh.sshBase import *
 from .RhelFacts import *
 from .DebianFacts import *
@@ -7,10 +5,12 @@ from .DebianFacts import *
 try:
   import paramiko
   from paramiko.ssh_exception import AuthenticationException
+
   HAS_PARAMIKO = True
 except ImportError:
   print("Error : Failed to import Paramiko module")
   HAS_PARAMIKO = False
+
 
 class LinuxFactorGenerator:
   def __init__(self, params):
@@ -35,5 +35,5 @@ class LinuxFactorGenerator:
   def get_info(self):
     self.factor.execute()
 
-  def get_result(self):
+  def get_results(self):
     self.factor.get_results()

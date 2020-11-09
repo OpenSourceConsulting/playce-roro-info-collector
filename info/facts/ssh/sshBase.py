@@ -13,9 +13,10 @@ except ImportError:
   HAS_PARAMIKO = False
 
 class SshBase(object):
-  def __init__(self, prompts_re=None, errors_re=None, kickstart=True):
+  def __init__(self, prompts_re=None, errors_re=None, kickstart=True, isSudo=True):
     self.ssh = None
     self.kickstart = kickstart
+    self.isSudo = isSudo
 
 
   def open(self, host, port=22, username=None, password=None, timeout=10,
@@ -78,7 +79,10 @@ class SshBase(object):
 
 
   def run_command(self, command):
-    stdin, stdout, stderr = self.ssh.exec_command('/usr/bin/sudo ' + command)
+    if self.isSudo:
+      stdin, stdout, stderr = self.ssh.exec_command('/usr/bin/sudo ' + command)
+    else:
+      stdin, stdout, stderr = self.ssh.exec_command(command)
 
     try:
       all_out = ''

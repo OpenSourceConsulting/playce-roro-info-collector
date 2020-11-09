@@ -2,7 +2,7 @@ import re
 import struct
 import socket
 
-from info.facts.AbstractLinuxFacts import AbstractLinuxFacts
+from info.facts.AbstractFacts import AbstractFacts
 
 try:
   import paramiko
@@ -17,10 +17,11 @@ ANSI_RE = [
   re.compile(r'\x08.')
 ]
 
-class DebianFacts(AbstractLinuxFacts):
+class DebianFacts(AbstractFacts):
 
   def __init__(self, params, release):
-    AbstractLinuxFacts.__init__(self, params, release)
+    AbstractFacts.__init__(self, params, release)
+    self.results = {}
 
   def execute(self):
     try:
@@ -51,7 +52,8 @@ class DebianFacts(AbstractLinuxFacts):
       print str(err)
 
     finally :
-      return self.facts
+      self.facts['results'] = self.results
+      return self.results
 
   def get_distribution_Linux(self):
     """
@@ -70,12 +72,12 @@ class DebianFacts(AbstractLinuxFacts):
     for line in out.splitlines():
       data = line.split(":")
       if 'Operating System' in line:
-        self.facts['distribution_version'] = data[1].strip()
-    return self.facts['distribution_version'];
+        self.results['distribution_version'] = data[1].strip()
+    return self.results['distribution_version'];
 
   def get_hostname(self):
     out = self.ssh.run_command("uname -n")
-    self.facts['hostname'] = out.replace('\n','')
+    self.results['hostname'] = out.replace('\n','')
 
   def check_path_exist(self, path):
     f_template = self.CHECK_FILE_EXIT
@@ -92,20 +94,20 @@ class DebianFacts(AbstractLinuxFacts):
         return False;
 
   def get_cpu_facts(self):
-    self.facts['processor'] = []
+    self.results['processor'] = []
 
     out = self.ssh.run_command("grep 'physical id' /proc/cpuinfo | wc -l")
-    self.facts['processor_count'] = int(out)
+    self.results['processor_count'] = int(out)
 
     out = self.ssh.run_command("grep -c processor /proc/cpuinfo")
-    self.facts['processor_cores'] = int(out)
+    self.results['processor_cores'] = int(out)
 
     """
     model name	: Westmere E56xx/L56xx/X56xx (Nehalem-C)
     """
     out = self.ssh.run_command("grep 'model name' /proc/cpuinfo | tail -1")
     data = out.split(':')[1].strip().replace('\n','')
-    self.facts['processor'] = data
+    self.results['processor'] = data
 
   def get_memory_facts(self):
     """
@@ -141,21 +143,21 @@ class DebianFacts(AbstractLinuxFacts):
     for line in out.splitlines():
       data = line.split()
       if 'total memory' in line:
-        self.facts['memtotal_mb'] = int(data[0]) // 1024
+        self.results['memtotal_mb'] = int(data[0]) // 1024
       if 'free memory' in line:
-        self.facts['memfree_mb'] = int(data[0]) // 1024
+        self.results['memfree_mb'] = int(data[0]) // 1024
       if 'total swap' in line:
-        self.facts['swaptotal_mb'] = int(data[0]) // 1024
+        self.results['swaptotal_mb'] = int(data[0]) // 1024
       if 'free swap' in line:
-        self.facts['swapfree_mb'] = int(data[0]) // 1024
+        self.results['swapfree_mb'] = int(data[0]) // 1024
 
   def get_kernel(self):
     out = self.ssh.run_command("uname -r")
-    self.facts['kernal'] = out.replace('\n','')
+    self.results['kernal'] = out.replace('\n','')
 
   def get_bitmode(self):
     out = self.ssh.run_command("uname -m")
-    self.facts['architecture'] = out.replace('\n','')
+    self.results['architecture'] = out.replace('\n','')
 
   def get_df(self):
     """
@@ -172,12 +174,12 @@ class DebianFacts(AbstractLinuxFacts):
     out = self.ssh.run_command("df -Th")
 
     if out:
-      self.facts['partitions'] = {}
+      self.results['partitions'] = {}
       regex = re.compile(r'^/dev/', re.IGNORECASE)
       for line in out.splitlines():
         if regex.match(line):
           pt = line.split()
-          self.facts['partitions'][pt[6]] = dict(device = pt[0], fstype = pt[1], size = pt[2], free = pt[4])
+          self.results['partitions'][pt[6]] = dict(device = pt[0], fstype = pt[1], size = pt[2], free = pt[4])
 
   def get_extra_partitions(self):
     """
@@ -189,28 +191,28 @@ class DebianFacts(AbstractLinuxFacts):
     # out = self.ssh.run_command("/usr/sbin/lsvg -l rootvg")
     #
     # if out:
-    #   self.facts['extra_partitions'] = {}
+    #   self.results['extra_partitions'] = {}
     #   for line in out.splitlines():
     #     data = line.split()
     #     if data[0] in 'rootvg:' or data[0] in 'LV':
     #       continue
     #
-    #     self.facts['extra_partitions'][data[6]] = \
+    #     self.results['extra_partitions'][data[6]] = \
     #       dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'False')
     #
     #     if data[6] not in root_partitions:
-    #       self.facts['extra_partitions'][data[6]] = \
+    #       self.results['extra_partitions'][data[6]] = \
     #         dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'True')
 
   def get_vgs_facts(self):
     out = self.ssh.run_command("pvs | tail -1")
     if out:
-      self.facts['vgs'] = {}
+      self.results['vgs'] = {}
       for line in out.splitlines():
         vg = line.split()
 
         # /dev/sda2  centos lvm2 a--  <99.00g 4.00m
-        self.facts['vgs'][vg[1]] = {
+        self.results['vgs'][vg[1]] = {
           'pv_name' : vg[0],
           'fmt' : vg[2],
           'p_size' : vg[4],
@@ -222,7 +224,7 @@ class DebianFacts(AbstractLinuxFacts):
     except_users=[]
     out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
     if out:
-      self.facts['users'] = {}
+      self.results['users'] = {}
       for line in out.splitlines():
         user = line.split(':')
 
@@ -231,7 +233,7 @@ class DebianFacts(AbstractLinuxFacts):
           profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.profile")
           kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.kshrc")
 
-          self.facts['users'][user[0]] = {'uid' : user[2],
+          self.results['users'][user[0]] = {'uid' : user[2],
                                           'gid' : user[3],
                                           'homedir' : user[5],
                                           'shell' : user[6],
@@ -277,23 +279,23 @@ class DebianFacts(AbstractLinuxFacts):
 
     out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
     if out:
-      self.facts['groups'] = {}
+      self.results['groups'] = {}
       for line in out.splitlines():
         group = line.split(':')
 
         # 0:groupname 1: 2:gid 3:users
         if not group[0] in except_groups:
-          self.facts['groups'][group[0]] = {'gid' : group[2],
+          self.results['groups'][group[0]] = {'gid' : group[2],
                                             'users' : group[3].split(',')
                                             }
   def get_password_of_users(self):
     out = self.ssh.run_command("cat /etc/shadow")
     if out:
-      self.facts['shadow'] = {}
+      self.results['shadow'] = {}
       for line in out.splitlines():
         user = line.split(':')
         if user[1] != '*' and user[1] != '!':
-          self.facts['shadow'][user[0]] = user[1]
+          self.results['shadow'][user[0]] = user[1]
 
   def get_ulimits(self):
     """
@@ -316,7 +318,7 @@ class DebianFacts(AbstractLinuxFacts):
         """
     user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
 
-    self.facts['ulimits'] = {}
+    self.results['ulimits'] = {}
     for user in user_list.splitlines():
       try:
 
@@ -326,11 +328,11 @@ class DebianFacts(AbstractLinuxFacts):
         out = regex.sub("", tmp_out)
 
         if out:
-          self.facts['ulimits'][user] = {}
+          self.results['ulimits'][user] = {}
           for line in out.splitlines():
             key = line[0:line.index("(")].strip()
             value = line[line.index("("):len(line)].split()
-            self.facts['ulimits'][user][key] = value[len(value)-1]
+            self.results['ulimits'][user][key] = value[len(value)-1]
       except self.ssh.ShellError:
         print("Dump command executing error!!")
 
@@ -339,22 +341,22 @@ class DebianFacts(AbstractLinuxFacts):
 
     out = self.ssh.run_command("find /var/spool/cron  -type f")
     if out:
-      self.facts['crontabs'] = {}
+      self.results['crontabs'] = {}
       for line in out.splitlines():
         out = self.ssh.run_command('cat ' + line)
-        self.facts['crontabs'][line] = out
+        self.results['crontabs'][line] = out
 
     out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
     if out:
-      self.facts['crontabs'] = {}
+      self.results['crontabs'] = {}
       for line in out.splitlines():
         out = self.ssh.run_command('cat ' + line)
-        self.facts['crontabs'][line] = out
+        self.results['crontabs'][line] = out
 
   def get_default_interfaces(self):
     out = self.ssh.run_command('netstat -ern')
 
-    self.facts['NICs'] = dict(v4 = {}, v6 = {})
+    self.results['NICs'] = dict(v4 = {}, v6 = {})
 
     if out:
       lines = out.splitlines()
@@ -362,11 +364,11 @@ class DebianFacts(AbstractLinuxFacts):
         words = line.split()
         if len(words) > 1 and words[0] == '0.0.0.0':
           if '.' in words[1]:
-            self.facts['NICs']['v4']['gateway'] = words[1]
-            self.facts['NICs']['v4']['interface'] = words[7]
+            self.results['NICs']['v4']['gateway'] = words[1]
+            self.results['NICs']['v4']['interface'] = words[7]
           elif ':' in words[1]:
-            self.facts['NICs']['v6']['gateway'] = words[1]
-            self.facts['NICs']['v6']['interface'] = words[7]
+            self.results['NICs']['v6']['gateway'] = words[1]
+            self.results['NICs']['v6']['interface'] = words[7]
 
   def get_interfaces_info(self):
     """
@@ -425,7 +427,7 @@ class DebianFacts(AbstractLinuxFacts):
         else:
           self.parse_unknown_line(words, current_if, ips)
 
-    self.facts['interfaces'] = interfaces
+    self.results['interfaces'] = interfaces
 
   def parse_interface_line(self, words):
     device = words[0][0:-1]
@@ -511,7 +513,7 @@ class DebianFacts(AbstractLinuxFacts):
     out = self.ssh.run_command("ps -ef")
 
     if out:
-      self.facts['processes'] = {}
+      self.results['processes'] = {}
 
       for line in out.splitlines():
         if "<defunct>" in line:
@@ -523,19 +525,19 @@ class DebianFacts(AbstractLinuxFacts):
         data = line.split()
 
         if re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[7]):
-          self.facts['processes'][data[7]] = dict(uid = data[0], cmd = data[8:])
-          # self.facts['processes'].append(dict(uid = data[0], cmd = data[8:]))
+          self.results['processes'][data[7]] = dict(uid = data[0], cmd = data[8:])
+          # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
         elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
-          self.facts['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
-          # self.facts['processes'].append(dict(uid = data[0], cmd = data[7:]))
+          self.results['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
+          # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
   def get_kernel_parameters(self):
     out = self.ssh.run_command("sysctl -a")
 
-    self.facts['kernel_parameters'] = {}
+    self.results['kernel_parameters'] = {}
     for line in out.splitlines():
       data = line.split('=')
-      self.facts['kernel_parameters'][data[0].strip()] = data[1].strip()
+      self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
 
   def get_dmi_facts(self):
     """
@@ -743,13 +745,13 @@ class DebianFacts(AbstractLinuxFacts):
     :return:
     """
     out = self.ssh.run_command("dmidecode -s bios-version")
-    self.facts['firmware_version'] = out.replace('\n','')
+    self.results['firmware_version'] = out.replace('\n','')
 
     out = self.ssh.run_command("dmidecode -s system-serial-number")
-    self.facts['product_serial'] =out.replace('\n','')
+    self.results['product_serial'] =out.replace('\n','')
 
     out = self.ssh.run_command("dmidecode -s processor-manufacturer")
-    self.facts['product_name'] = out.replace('\n','')
+    self.results['product_name'] = out.replace('\n','')
 
   def get_timezone(self):
     """
@@ -757,7 +759,7 @@ class DebianFacts(AbstractLinuxFacts):
     :return:
     """
     out = self.ssh.run_command("timedatectl | grep 'Time zone'")
-    self.facts['timezone'] =out.split(':')[1].strip().replace('\n','')
+    self.results['timezone'] =out.split(':')[1].strip().replace('\n','')
 
   def get_route_table(self):
     """
@@ -768,19 +770,19 @@ class DebianFacts(AbstractLinuxFacts):
     :return:
     """
     out = self.ssh.run_command("route -n")
-    self.facts['route_table'] = {}
+    self.results['route_table'] = {}
     lineNum = 0;
     for line in out.splitlines():
       if lineNum > 1:
         data = line.split();
-        self.facts['route_table'][data[0]] = {}
-        self.facts['route_table'][data[0]]["Gateway"] = data[1]
-        self.facts['route_table'][data[0]]["Genmask"] = data[2]
-        self.facts['route_table'][data[0]]["Flags"] = data[3]
-        self.facts['route_table'][data[0]]["Metric"] = data[4]
-        self.facts['route_table'][data[0]]["Ref"] = data[5]
-        self.facts['route_table'][data[0]]["Use"] = data[6]
-        self.facts['route_table'][data[0]]["Iface"] = data[7]
+        self.results['route_table'][data[0]] = {}
+        self.results['route_table'][data[0]]["Gateway"] = data[1]
+        self.results['route_table'][data[0]]["Genmask"] = data[2]
+        self.results['route_table'][data[0]]["Flags"] = data[3]
+        self.results['route_table'][data[0]]["Metric"] = data[4]
+        self.results['route_table'][data[0]]["Ref"] = data[5]
+        self.results['route_table'][data[0]]["Use"] = data[6]
+        self.results['route_table'][data[0]]["Iface"] = data[7]
       lineNum = lineNum+1
 
   def get_listen_port(self):
@@ -795,7 +797,7 @@ class DebianFacts(AbstractLinuxFacts):
     out = self.ssh.run_command("netstat -tunlp")
 
     if out:
-      self.facts['listen_port_list'] = {}
+      self.results['listen_port_list'] = {}
 
       for line in out.splitlines():
         if '(only servers)' in line:
@@ -806,17 +808,17 @@ class DebianFacts(AbstractLinuxFacts):
 
         data = line.split()
 
-        if not self.facts['listen_port_list'].get(data[0]):
-          self.facts['listen_port_list'][data[0]] = {}
+        if not self.results['listen_port_list'].get(data[0]):
+          self.results['listen_port_list'][data[0]] = {}
 
         if 'LISTEN' in line:
-          self.facts['listen_port_list'][data[0]][data[6]] = {
+          self.results['listen_port_list'][data[0]][data[6]] = {
             "localAddress" : data[3],
             "foreignAddress" : data[4],
             "state" : data[5],
           }
         else:
-          self.facts['listen_port_list'][data[0]][data[5]] = {
+          self.results['listen_port_list'][data[0]][data[5]] = {
             "localAddress" : data[3],
             "foreignAddress" : data[4],
             "state" : '',
@@ -865,7 +867,7 @@ class DebianFacts(AbstractLinuxFacts):
       'iptables -t nat -L --line-number -n'
     ]
 
-    self.facts['firewall'] = {}
+    self.results['firewall'] = {}
 
     for cmd in commands:
       out = self.ssh.run_command(cmd)
@@ -896,9 +898,9 @@ class DebianFacts(AbstractLinuxFacts):
             self.parse_chain_rule(curent_chain, line, type)
 
       if 'nat' in cmd:
-        self.facts['firewall']['extra_rules'] = curent_chain
+        self.results['firewall']['extra_rules'] = curent_chain
       else:
-        self.facts['firewall']['rules'] = curent_chain
+        self.results['firewall']['rules'] = curent_chain
 
 
 

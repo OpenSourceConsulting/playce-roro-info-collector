@@ -16,10 +16,11 @@ def get_args():
 
   # Source server info
   parser.add_argument('-H', '--host', type=str, help='Source host name or IP', required=True)
-  parser.add_argument('-P', '--port', type=str, help='Source host SSH Port', required=False)
+  parser.add_argument('-P', '--port', type=str, help='Source host SSH Port', required=True)
   parser.add_argument('-u', '--username', type=str, help='User of Source Server', required=True)
   parser.add_argument('-p', '--password', type=str, help='Password for user', required=True)
   parser.add_argument('-T', '--target', type=str, help='target os', required=True)
+  parser.add_argument('-L', '--log_dir', type=str, help='log directory path', required=False)
 
   # Array for all arguments passed to script
   args = parser.parse_args()
@@ -34,11 +35,13 @@ def set_params(args):
   params['username'] = args.username
   params['password'] = args.password
   params['target'] = args.target
+  params['logDir'] = args.log_dir
 
   return params
 
 
 def main(params):
+
   if params['target'] == 'linux':
     module = LinuxFactorGenerator(params)
     module.get_info()
@@ -49,7 +52,8 @@ def main(params):
     module = WINDOWS(params)
     module.execute()
 
-  module.get_result()
+  module.get_results()
+
 
 
 if __name__ == "__main__":

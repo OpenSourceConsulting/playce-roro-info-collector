@@ -2,7 +2,7 @@ import re
 import struct
 import socket
 
-from info.facts.AbstractLinuxFacts import AbstractLinuxFacts
+from info.facts.AbstractFacts import AbstractFacts
 try:
   import paramiko
   from paramiko.ssh_exception import AuthenticationException
@@ -16,10 +16,11 @@ ANSI_RE = [
   re.compile(r'\x08.')
 ]
 
-class RhelFacts(AbstractLinuxFacts):
+class RhelFacts(AbstractFacts):
 
   def __init__(self, params, release):
-    AbstractLinuxFacts.__init__(self, params, release)
+    AbstractFacts.__init__(self, params, release)
+    self.results = {}
 
   def execute(self):
     try:
@@ -46,15 +47,17 @@ class RhelFacts(AbstractLinuxFacts):
       self.get_firewall()
       self.get_listen_port()
 
+
     except Exception as err:
       print str(err)
 
     finally :
-      return self.facts
+      self.facts['results'] = self.results
+      return self.results
 
   def get_hostname(self):
     out = self.ssh.run_command("uname -n")
-    self.facts['hostname'] = out.replace('\n','')
+    self.results['hostname'] = out.replace('\n','')
 
   def check_path_exist(self, path):
     f_template = self.CHECK_FILE_EXIT
@@ -72,17 +75,21 @@ class RhelFacts(AbstractLinuxFacts):
 
 
   def get_cpu_facts(self):
-    self.facts['processor'] = []
+    self.results['processor'] = []
 
     out = self.ssh.run_command("grep 'physical id' /proc/cpuinfo | wc -l")
-    self.facts['processor_count'] = int(out)
+    self.results['processor_count'] = int(out)
 
     out = self.ssh.run_command("grep -c processor /proc/cpuinfo")
-    self.facts['processor_cores'] = int(out)
+    self.results['processor_cores'] = int(out)
 
     out = self.ssh.run_command("grep 'model name' /proc/cpuinfo | tail -1")
     data = out.split(':')[1].strip().replace('\n','')
-    self.facts['processor'] = data
+    self.results['processor'] = data
+
+    self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+    self.facts["system_summary"]["processor_cores"] = self.results['processor_cores']
+    self.facts["system_summary"]["processor"] = data
 
 
   def get_memory_facts(self):
@@ -90,32 +97,38 @@ class RhelFacts(AbstractLinuxFacts):
     for line in out.splitlines():
       data = line.split()
       if 'total memory' in line:
-        self.facts['memtotal_mb'] = int(data[0]) // 1024
+        self.results['memtotal_mb'] = int(data[0]) // 1024
+        self.facts["system_summary"]["memtotal_mb"] = int(data[0]) // 1024
       if 'free memory' in line:
-        self.facts['memfree_mb'] = int(data[0]) // 1024
+        self.results['memfree_mb'] = int(data[0]) // 1024
+        self.facts["system_summary"]["memfree_mb"] = int(data[0]) // 1024
       if 'total swap' in line:
-        self.facts['swaptotal_mb'] = int(data[0]) // 1024
+        self.results['swaptotal_mb'] = int(data[0]) // 1024
+        self.facts["system_summary"]["swaptotal_mb"] = int(data[0]) // 1024
       if 'free swap' in line:
-        self.facts['swapfree_mb'] = int(data[0]) // 1024
+        self.results['swapfree_mb'] = int(data[0]) // 1024
+        self.facts["system_summary"]["swapfree_mb"] = int(data[0]) // 1024
 
   def get_kernel(self):
     out = self.ssh.run_command("uname -r")
-    self.facts['kernal'] = out.replace('\n','')
+    self.results['kernal'] = out.replace('\n','')
+    self.facts["system_summary"]["kernal"] = out.replace('\n','')
 
   def get_bitmode(self):
     out = self.ssh.run_command("uname -m")
-    self.facts['architecture'] = out.replace('\n','')
+    self.results['architecture'] = out.replace('\n','')
+    self.facts["system_summary"]["architecture"] = out.replace('\n','')
 
   def get_df(self):
     out = self.ssh.run_command("df -Th")
 
     if out:
-      self.facts['partitions'] = {}
+      self.results['partitions'] = {}
       regex = re.compile(r'^/dev/', re.IGNORECASE)
       for line in out.splitlines():
         if regex.match(line):
           pt = line.split()
-          self.facts['partitions'][pt[6]] = dict(device = pt[0], fstype = pt[1], size = pt[2], free = pt[4])
+          self.results['partitions'][pt[6]] = dict(device = pt[0], fstype = pt[1], size = pt[2], free = pt[4])
 
 
   def get_extra_partitions(self):
@@ -124,29 +137,29 @@ class RhelFacts(AbstractLinuxFacts):
     # out = self.ssh.run_command("/usr/sbin/lsvg -l rootvg")
     #
     # if out:
-    #   self.facts['extra_partitions'] = {}
+    #   self.results['extra_partitions'] = {}
     #   for line in out.splitlines():
     #     data = line.split()
     #     if data[0] in 'rootvg:' or data[0] in 'LV':
     #       continue
     #
-    #     self.facts['extra_partitions'][data[6]] = \
+    #     self.results['extra_partitions'][data[6]] = \
     #       dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'False')
     #
     #     if data[6] not in root_partitions:
-    #       self.facts['extra_partitions'][data[6]] = \
+    #       self.results['extra_partitions'][data[6]] = \
     #         dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'True')
 
 
   def get_vgs_facts(self):
     out = self.ssh.run_command("pvs | tail -1")
     if out:
-      self.facts['vgs'] = {}
+      self.results['vgs'] = {}
       for line in out.splitlines():
         vg = line.split()
 
         # /dev/sda2  centos lvm2 a--  <99.00g 4.00m
-        self.facts['vgs'][vg[1]] = {
+        self.results['vgs'][vg[1]] = {
           'pv_name' : vg[0],
           'fmt' : vg[2],
           'p_size' : vg[4],
@@ -158,7 +171,7 @@ class RhelFacts(AbstractLinuxFacts):
     except_users=[]
     out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
     if out:
-      self.facts['users'] = {}
+      self.results['users'] = {}
       for line in out.splitlines():
         user = line.split(':')
 
@@ -167,7 +180,7 @@ class RhelFacts(AbstractLinuxFacts):
           profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.profile")
           kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.kshrc")
 
-          self.facts['users'][user[0]] = {'uid' : user[2],
+          self.results['users'][user[0]] = {'uid' : user[2],
                                           'gid' : user[3],
                                           'homedir' : user[5],
                                           'shell' : user[6],
@@ -179,28 +192,28 @@ class RhelFacts(AbstractLinuxFacts):
 
     out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
     if out:
-      self.facts['groups'] = {}
+      self.results['groups'] = {}
       for line in out.splitlines():
         group = line.split(':')
 
         # 0:groupname 1: 2:gid 3:users
         if not group[0] in except_groups:
-          self.facts['groups'][group[0]] = {'gid' : group[2],
+          self.results['groups'][group[0]] = {'gid' : group[2],
                                             'users' : group[3].split(',')
                                             }
   def get_password_of_users(self):
     out = self.ssh.run_command("cat /etc/shadow")
     if out:
-      self.facts['shadow'] = {}
+      self.results['shadow'] = {}
       for line in out.splitlines():
         user = line.split(':')
         if user[1] != '*' and user[1] != '!':
-          self.facts['shadow'][user[0]] = user[1]
+          self.results['shadow'][user[0]] = user[1]
 
   def get_ulimits(self):
     user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
 
-    self.facts['ulimits'] = {}
+    self.results['ulimits'] = {}
     for user in user_list.splitlines():
       try:
         command = ("su - %s --shell /bin/bash -c 'ulimit -a'") % user
@@ -209,11 +222,11 @@ class RhelFacts(AbstractLinuxFacts):
         out = regex.sub("", tmp_out)
 
         if out:
-          self.facts['ulimits'][user] = {}
+          self.results['ulimits'][user] = {}
           for line in out.splitlines():
             key = line[0:line.index("(")].strip()
             value = line[line.index("("):len(line)].split()
-            self.facts['ulimits'][user][key] = value[len(value)-1]
+            self.results['ulimits'][user][key] = value[len(value)-1]
       except self.ssh.ShellError:
         print("Dump command executing error!!")
 
@@ -222,22 +235,22 @@ class RhelFacts(AbstractLinuxFacts):
 
     out = self.ssh.run_command("find /var/spool/cron  -type f")
     if out:
-      self.facts['crontabs'] = {}
+      self.results['crontabs'] = {}
       for line in out.splitlines():
         out = self.ssh.run_command('cat ' + line)
-        self.facts['crontabs'][line] = out
+        self.results['crontabs'][line] = out
 
     out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
     if out:
-      self.facts['crontabs'] = {}
+      self.results['crontabs'] = {}
       for line in out.splitlines():
         out = self.ssh.run_command('cat ' + line)
-        self.facts['crontabs'][line] = out
+        self.results['crontabs'][line] = out
 
   def get_default_interfaces(self):
     out = self.ssh.run_command('ip route')
 
-    self.facts['NICs'] = dict(v4 = [], v6 = [])
+    self.results['NICs'] = dict(v4 = [], v6 = [])
 
     if out:
       lines = out.splitlines()
@@ -246,10 +259,10 @@ class RhelFacts(AbstractLinuxFacts):
         if len(words) > 1 and words[0] == 'default':
           if '.' in words[2]:
             cur_info = {'gateway' : words[2],'interface' : words[words.index("dev")+1] }
-            self.facts['NICs']['v4'].append(cur_info)
+            self.results['NICs']['v4'].append(cur_info)
           elif ':' in words[2]:
-            self.facts['NICs']['v6']['gateway'] = words[2]
-            self.facts['NICs']['v6']['interface'] = words[line.index("dev")+1]
+            self.results['NICs']['v6']['gateway'] = words[2]
+            self.results['NICs']['v6']['interface'] = words[line.index("dev")+1]
 
   def get_interfaces_info(self):
     interfaces = {}
@@ -291,7 +304,7 @@ class RhelFacts(AbstractLinuxFacts):
         else:
           self.parse_unknown_line(words, current_if, ips)
 
-    self.facts['interfaces'] = interfaces
+    self.results['interfaces'] = interfaces
 
   def parse_interface_line(self, words):
     device = words[1][0:-1]
@@ -367,7 +380,7 @@ class RhelFacts(AbstractLinuxFacts):
     out = self.ssh.run_command("ps -ef")
 
     if out:
-      self.facts['processes'] = {}
+      self.results['processes'] = {}
 
       for line in out.splitlines():
         if "<defunct>" in line:
@@ -379,37 +392,44 @@ class RhelFacts(AbstractLinuxFacts):
         data = line.split()
 
         if re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[7]):
-          self.facts['processes'][data[7]] = dict(uid = data[0], cmd = data[8:])
-          # self.facts['processes'].append(dict(uid = data[0], cmd = data[8:]))
+          self.results['processes'][data[7]] = dict(uid = data[0], cmd = data[8:])
+          # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
         elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
-          self.facts['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
-          # self.facts['processes'].append(dict(uid = data[0], cmd = data[7:]))
+          self.results['processes'][data[7]] = dict(uid = data[0], cmd = data[7:])
+          # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
   def get_kernel_parameters(self):
     out = self.ssh.run_command("sysctl -a")
 
-    self.facts['kernel_parameters'] = {}
+    self.results['kernel_parameters'] = {}
     for line in out.splitlines():
       data = line.split('=')
-      self.facts['kernel_parameters'][data[0].strip()] = data[1].strip()
+      self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
+
 
   def get_dmi_facts(self):
     out = self.ssh.run_command("dmidecode -s bios-version")
-    self.facts['firmware_version'] = out.replace('\n','')
+    self.results['firmware_version'] = out.replace('\n','')
 
     out = self.ssh.run_command("dmidecode -s system-serial-number")
-    self.facts['product_serial'] =out.replace('\n','')
+    self.results['product_serial'] =out.replace('\n','')
 
     out = self.ssh.run_command("dmidecode -s processor-manufacturer")
-    self.facts['product_name'] = ''.join(sorted(set(out), key=out.index))
+    self.results['product_name'] = ''.join(sorted(set(out), key=out.index))
+
+    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
+    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
+    self.facts["system_summary"]["product_name"] = self.results['product_name']
+
 
   def get_timezone(self):
     out = self.ssh.run_command("timedatectl | grep 'Time zone'")
-    self.facts['timezone'] =out.split(':')[1].strip().replace('\n','')
+    self.results['timezone'] =out.split(':')[1].strip().replace('\n','')
+    self.facts["system_summary"]["timezone"] = self.results['timezone']
 
   def get_route_table(self):
     out = self.ssh.run_command("ip route")
-    self.facts['route_table'] = dict(list=[])
+    self.results['route_table'] = dict(list=[])
     for line in out.splitlines():
       data = line.split()
 
@@ -442,19 +462,19 @@ class RhelFacts(AbstractLinuxFacts):
       # else:
       #   info["Src"] = ''
 
-      self.facts['route_table']['list'].append(info)
+      self.results['route_table']['list'].append(info)
 
   def get_listen_port(self):
     out = self.ssh.run_command("ss -nutlp | grep LISTEN")
 
     if out:
-      self.facts['listen_port_list'] = {}
+      self.results['listen_port_list'] = {}
 
       for line in out.splitlines():
         data = line.split()
 
-        if not self.facts['listen_port_list'].get(data[0]):
-          self.facts['listen_port_list'][data[0]] = dict()
+        if not self.results['listen_port_list'].get(data[0]):
+          self.results['listen_port_list'][data[0]] = dict()
 
         local_addr, l_port = data[4].rsplit(':', 1)
         frg_addr, f_port = data[5].rsplit(':', 1)
@@ -475,8 +495,8 @@ class RhelFacts(AbstractLinuxFacts):
             "fd" : fd
           }
 
-          self.facts['listen_port_list'][data[0]][l_port] = []
-          self.facts['listen_port_list'][data[0]][l_port].append(port_info)
+          self.results['listen_port_list'][data[0]][l_port] = []
+          self.results['listen_port_list'][data[0]][l_port].append(port_info)
 
   def get_firewall(self):
     """
@@ -519,7 +539,7 @@ class RhelFacts(AbstractLinuxFacts):
       'iptables -t nat -L --line-number -n'
     ]
 
-    self.facts['firewall'] = {}
+    self.results['firewall'] = {}
 
     for cmd in commands:
       out = self.ssh.run_command(cmd)
@@ -540,9 +560,9 @@ class RhelFacts(AbstractLinuxFacts):
           self.parse_chain_rule(curent_chain, line, type)
 
       if 'nat' in cmd:
-        self.facts['firewall']['extra_rules'] = curent_chain
+        self.results['firewall']['extra_rules'] = curent_chain
       else:
-        self.facts['firewall']['rules'] = curent_chain
+        self.results['firewall']['rules'] = curent_chain
 
 
 
