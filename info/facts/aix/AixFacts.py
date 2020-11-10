@@ -52,8 +52,9 @@ class AixFacts(AbstractFacts):
       self.get_route_table()
       # self.get_firewall()
       self.get_listen_port()
-
-      print self.facts
+      self.get_locale()
+      self.get_env()
+      self.get_fs_info()
     except Exception as err:
       print str(err)
 
@@ -596,14 +597,50 @@ class AixFacts(AbstractFacts):
           print "get_listen_port, Error, %s file descriptor parsing" % data[0]
 
   def get_locale(self):
-      None
+    locale = self.ssh.run_command("locale")
+
+    if locale:
+      self.results['locale'] = dict()
+
+      for line in locale.splitlines():
+          key, value = line.split("=")
+          self.results['locale'][key]=value
+
   def get_env(self):
-      None
+    env = self.ssh.run_command("env")
+
+    if env:
+      self.results['env'] = dict()
+
+      for line in env.splitlines():
+        key, value = line.split("=")
+        self.results['env'][key]=value
+
   def get_lvm_info(self):
       None
+
   def get_fs_info(self):
-      None
+    fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
+
+    if fsList:
+      self.results['file_system'] = dict()
+
+      for line in fsList.splitlines():
+
+        regex = re.compile('^\*')
+        if regex.match(line):
+          continue
+
+        if ":" in line:
+           fs = line.split(":")[0]
+           self.results['file_system'][fs] = {}
+
+        if "=" in line:
+           key, value = line.split("=")
+           self.results['file_system'][fs][key]=value
+
   def get_deamon_list(self):
       None
+
   def get_security_info(self):
       None
