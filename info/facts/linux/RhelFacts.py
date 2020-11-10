@@ -585,3 +585,16 @@ class RhelFacts(AbstractFacts):
     }
 
     cur_chain[type][data[0]] = info
+
+  def get_locale(self):
+    None
+  def get_env(self):
+    None
+  def get_lvm_info(self):
+    None
+  def get_fs_info(self):
+    None
+  def get_deamon_list(self):
+    None
+  def get_security_info(self):
+    None

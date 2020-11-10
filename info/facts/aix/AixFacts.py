@@ -594,3 +594,16 @@ class AixFacts(AbstractFacts):
           self.results['listen_port_list'][data[1]][l_port].append(port_info)
         else:
           print "get_listen_port, Error, %s file descriptor parsing" % data[0]
+
+  def get_locale(self):
+      None
+  def get_env(self):
+      None
+  def get_lvm_info(self):
+      None
+  def get_fs_info(self):
+      None
+  def get_deamon_list(self):
+      None
+  def get_security_info(self):
+      None

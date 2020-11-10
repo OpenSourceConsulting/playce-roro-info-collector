@@ -87,6 +87,24 @@ class AbstractFacts(ABC):
   @abc.abstractmethod
   def get_listen_port(self): pass
 
+  @abc.abstractmethod
+  def get_locale(self): pass
+
+  @abc.abstractmethod
+  def get_env(self): pass
+
+  @abc.abstractmethod
+  def get_lvm_info(self): pass
+
+  @abc.abstractmethod
+  def get_fs_info(self): pass
+
+  @abc.abstractmethod
+  def get_deamon_list(self): pass
+
+  @abc.abstractmethod
+  def get_security_info(self): pass
+
   def get_results(self):
     self.logger.debug("get Result")
     r = json.dumps(self.facts, indent=2)
