@@ -139,17 +139,26 @@ class DebianFacts(AbstractFacts):
          9797 forks
     :return:
     """
+    self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
     out = self.ssh.run_command("vmstat -s")
     for line in out.splitlines():
       data = line.split()
       if 'total memory' in line:
-        self.results['memtotal_mb'] = int(data[0]) // 1024
+        memtotal_mb = int(data[0]) // 1024
+        self.facts["system_summary"]["memtotal_mb"] = memtotal_mb
+        self.results['memory']["memtotal_mb"] = memtotal_mb
       if 'free memory' in line:
-        self.results['memfree_mb'] = int(data[0]) // 1024
+        memfree_mb = int(data[0]) // 1024
+        self.facts["system_summary"]["memfree_mb"] = memfree_mb
+        self.results['memory']["memfree_mb"] = memfree_mb
       if 'total swap' in line:
-        self.results['swaptotal_mb'] = int(data[0]) // 1024
+        swaptotal_mb = int(data[0]) // 1024
+        self.facts["system_summary"]["swaptotal_mb"] = swaptotal_mb
+        self.results['memory']["swaptotal_mb"] = swaptotal_mb
       if 'free swap' in line:
-        self.results['swapfree_mb'] = int(data[0]) // 1024
+        swapfree_mb = int(data[0]) // 1024
+        self.facts["system_summary"]["swapfree_mb"] = swapfree_mb
+        self.results['memory']["swapfree_mb"] = swapfree_mb
 
   def get_kernel(self):
     out = self.ssh.run_command("uname -r")

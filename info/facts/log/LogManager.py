@@ -11,7 +11,7 @@ def getLogger(logDir=None):
     os.makedirs(logDir)
 
   fileName = datetime.now().strftime("%Y_%m_%d_%H_%M_")
-  logging.basicConfig(filename=logDir+"/" + fileName +"assessment.log", level=logging.DEBUG)
+  logging.basicConfig(filename=logDir+"/" + fileName +"assessment.log", level=logging.ERROR)
 
 
   logger = logging.getLogger()
