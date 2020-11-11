@@ -55,10 +55,12 @@ class AixFacts(AbstractFacts):
       self.get_locale()
       self.get_env()
       self.get_fs_info()
+      self.get_lvm_info()
     except Exception as err:
       print str(err)
 
     finally:
+      self.system_summary = self.get_system_summary();
       self.facts["results"] = self.results
       return self.results
 
@@ -68,10 +70,7 @@ class AixFacts(AbstractFacts):
     self.results['distribution_version'] = data[0]
     self.results['distribution_release'] = data[1]
 
-    self.facts["system_summary"]["distribution_version"] = self.results[
-      'distribution_version']
-    self.facts["system_summary"]["distribution_release"] = self.results[
-      'distribution_release']
+    self.facts["system_summary"]["os"] = "AIX "+data[0]+"."+data[1]
 
   def get_hostname(self):
     out = self.ssh.run_command("/usr/bin/hostname")
@@ -106,9 +105,9 @@ class AixFacts(AbstractFacts):
 
       self.facts["system_summary"]["processor_count"] = self.results[
         'processor_count']
-      self.facts["system_summary"]["processor_cores"] = self.results[
+      self.facts["system_summary"]["cores"] = self.results[
         'processor_cores']
-      self.facts["system_summary"]["processor"] = self.results['processor']
+      self.facts["system_summary"]["cpu"] = self.results['processor']
 
   def get_memory_facts(self):
     pagesize = 4096
@@ -122,8 +121,7 @@ class AixFacts(AbstractFacts):
     memtotal_mb = pagesize * pagecount // 1024 // 1024
     memfree_mb = pagesize * freecount // 1024 // 1024
 
-    self.facts["system_summary"]["memtotal_mb"] = memtotal_mb
-    self.facts["system_summary"]["memfree_mb"] = memfree_mb
+    self.facts["system_summary"]["memory"] = memtotal_mb
 
     self.results['memory'] = dict(memtotal_mb=memtotal_mb, memfree_mb=memfree_mb)
     # self.results['memory']["memtotal_mb"] = memtotal_mb
@@ -139,8 +137,7 @@ class AixFacts(AbstractFacts):
       swaptotal_mb = int(data[0].rstrip('MB'))
       percused = int(data[1].rstrip('%'))
       swapfree_mb = int(swaptotal_mb * (100 - percused) / 100)
-      self.facts["system_summary"]["swaptotal_mb"] = swaptotal_mb
-      self.facts["system_summary"]["swaptotal_mb"] = swapfree_mb
+      self.facts["system_summary"]["swap"] = swaptotal_mb
       self.results['memory']['swaptotal_mb'] = swaptotal_mb
       self.results['memory']['swapfree_mb'] = swapfree_mb
 
@@ -156,7 +153,7 @@ class AixFacts(AbstractFacts):
   def get_bitmode(self):
     out = self.ssh.run_command("getconf KERNEL_BITMODE")
     self.results['architecture'] = out.replace('\n', '')
-    self.facts["system_summary"]["architecture"] = self.results['architecture']
+    self.facts["system_summary"]["architecture"] = self.results['architecture']+"-bit"
 
   def get_dmi_facts(self):
     out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
@@ -179,7 +176,7 @@ class AixFacts(AbstractFacts):
       self.facts["system_summary"]["product_serial"] = self.results[
         'product_serial']
       self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
-      self.facts["system_summary"]["product_name"] = self.results[
+      self.facts["system_summary"]["vendor"] = self.results[
         'product_name']
 
   def get_df(self):
@@ -195,6 +192,7 @@ class AixFacts(AbstractFacts):
                                                    fstype=self.get_fs_type(
                                                        pt[0]), size=pt[1],
                                                    free=pt[2])
+          self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
   def get_fs_type(self, device):
     short_device_name = device.split('/')[2]
@@ -429,6 +427,19 @@ class AixFacts(AbstractFacts):
     else:
       address['broadcast'] = socket.inet_ntoa(
         struct.pack('!L', address_bin | (~netmask_bin & 0xffffffff)))
+
+    # out = self.ssh.run_command('/usr/bin/netstat -nr')
+    #
+    # if out:
+    #   lines = out.splitlines()
+    #   for line in lines:
+    #     words = line.split()
+    #     if len(words) > 1 and words[0] == 'default' and words[5] == current_if['device']:
+    #       if '.' in words[1]:
+    #         address['gateway'] = words[1]
+    #       elif ':' in words[1]:
+    #         address['gateway'] = words[1]
+
     # add to our list of addresses
     if not words[1].startswith('127.'):
       ips['all_ipv4_addresses'].append(address['address'])
@@ -451,9 +462,6 @@ class AixFacts(AbstractFacts):
     pass
 
   def get_interfaces_info(self):
-    ifconfig_path = '/etc/ifconfig'
-    ifconfig_options = '-a'
-
     interfaces = {}
     current_if = {}
     ips = dict(
@@ -490,6 +498,7 @@ class AixFacts(AbstractFacts):
           self.parse_unknown_line(words, current_if, ips)
 
     self.results['interfaces'] = interfaces
+    self.facts['system_summary']['network_info'] = interfaces
 
   def get_ps_lists(self):
     out = self.ssh.run_command("/usr/bin/ps -ef")
@@ -554,9 +563,6 @@ class AixFacts(AbstractFacts):
 
         self.results['route_table']['list'].append(info)
 
-  def get_firewall(self):
-    None
-
   def get_listen_port(self):
     ps_list = self.ssh.run_command("/usr/bin/netstat -Aan | grep LISTEN")
 
@@ -594,7 +600,8 @@ class AixFacts(AbstractFacts):
           self.results['listen_port_list'][data[1]][l_port] = []
           self.results['listen_port_list'][data[1]][l_port].append(port_info)
         else:
-          print "get_listen_port, Error, %s file descriptor parsing" % data[0]
+          None
+          # print "get_listen_port, Error, %s file descriptor parsing" % data[0]
 
   def get_locale(self):
     locale = self.ssh.run_command("locale")
@@ -617,7 +624,50 @@ class AixFacts(AbstractFacts):
         self.results['env'][key]=value
 
   def get_lvm_info(self):
-      None
+    lsvg_path = "/usr/sbin/lsvg"
+    xargs_path = "/usr/bin/xargs"
+    cmd = "%s | %s %s -p" % (lsvg_path, xargs_path, lsvg_path)
+    if lsvg_path and xargs_path:
+      out = self.ssh.run_command(cmd)
+      if out:
+        self.results['vgs'] = {}
+        for m in re.finditer(
+                r'(\S+):\n.*FREE DISTRIBUTION(\n(\S+)\s+(\w+)\s+(\d+)\s+(\d+).*)+',
+                out):
+          self.results['vgs'][m.group(1)] = dict(pvs=[],lvs=[])
+          pp_size = 0
+          cmd = "%s %s" % (lsvg_path, m.group(1))
+          out = self.ssh.run_command(cmd)
+          if out:
+            pp_size = re.search(r'PP SIZE:\s+(\d+\s+\S+)', out).group(1)
+            for n in re.finditer(r'(\S+)\s+(\w+)\s+(\d+)\s+(\d+).*',
+                                 m.group(0)):
+              pv_info = {'pv_name': n.group(1),
+                         'pv_state': n.group(2),
+                         'total_pps': n.group(3),
+                         'free_pps': n.group(4),
+                         'pp_size': pp_size
+                         }
+              self.results['vgs'][m.group(1)]['pvs'].append(pv_info)
+
+          cmd = "%s -l %s" % (lsvg_path, m.group(1))
+          out = self.ssh.run_command(cmd)
+
+          if out:
+            for line in out.splitlines():
+              if m.group(1) in line or 'LV NAME' in line:
+                continue
+
+              data = line.split()
+              lv_info = {'lv_name': data[0],
+                         'lv_type': data[1],
+                         'lps': data[2],
+                         'pps': data[3],
+                         'pvs': data[4],
+                         'lv_state': data[5],
+                         'mount_point': data[6]
+                         }
+              self.results['vgs'][m.group(1)]['lvs'].append(lv_info)
 
   def get_fs_info(self):
     fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
@@ -643,4 +693,11 @@ class AixFacts(AbstractFacts):
       None
 
   def get_security_info(self):
+      None
+
+  def get_firewall(self):
+    None
+
+
+  def get_system_summary(self):
       None
