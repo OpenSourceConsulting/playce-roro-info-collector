@@ -940,7 +940,19 @@ class DebianFacts(AbstractFacts):
   def get_fs_info(self):
     None
   def get_daemon_list(self):
-    None
+    out = self.ssh.run_command("service --status-all")
+
+    if out:
+      self.results['daemon_list'] = {}
+      for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)',out):
+
+        if '+' in m.group(1):
+          self.results['daemon_list'][m.group(2)] = "running"
+        elif '-' in m.group(1):
+          self.results['daemon_list'][m.group(2)] = "stop"
+        else:
+          self.results['daemon_list'][m.group(2)] = "unknown"
+
   def get_security_info(self):
     out = self.ssh.run_command("cat /etc/login.defs")
 

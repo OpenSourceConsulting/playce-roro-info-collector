@@ -19,9 +19,9 @@ class LinuxFactorGenerator:
 
     os_release = self.get_distribution_Linux()
 
-    if 'CentOS' or 'Red Hat' in os_release:
+    if os_release in 'CentOS' or 'Red Hat':
       self.factor = RhelFacts(params, os_release)
-    elif 'Ubuntu' in os_release:
+    else:
       self.factor = DebianFacts(params, os_release)
 
   def get_distribution_Linux(self):

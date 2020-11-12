@@ -27,39 +27,39 @@ class RhelFacts(AbstractFacts):
 
     def execute(self):
         try:
-            # self.get_hostname()
-            # self.get_cpu_facts()
-            # self.get_memory_facts()
-            # self.get_kernel()
-            # self.get_bitmode()
-            # self.get_dmi_facts()
-            # self.get_interfaces_info()
-            # self.get_vgs_facts()
-            # self.get_users()
-            # self.get_groups()
-            # self.get_password_of_users()
-            # self.get_ulimits()
-            # self.get_crontabs()
-            # self.get_default_interfaces()
-            # self.get_df()
-            # # self.get_extra_partitions()
-            # self.get_ps_lists()
-            # self.get_kernel_parameters()
-            # self.get_timezone()
-            # self.get_route_table()
-            # self.get_firewall()
-            # self.get_listen_port()
-            # self.get_locale()
-            # self.get_env()
-            # self.get_fs_info()
-            # self.get_lvm_info()
-            # self.get_daemon_list()
-            self.get_security_info();
+            self.get_hostname()
+            self.get_cpu_facts()
+            self.get_memory_facts()
+            self.get_kernel()
+            self.get_bitmode()
+            self.get_dmi_facts()
+            self.get_interfaces_info()
+            self.get_vgs_facts()
+            self.get_users()
+            self.get_groups()
+            self.get_password_of_users()
+            self.get_ulimits()
+            self.get_crontabs()
+            self.get_default_interfaces()
+            self.get_df()
+            # self.get_extra_partitions()
+            self.get_ps_lists()
+            self.get_kernel_parameters()
+            self.get_timezone()
+            self.get_route_table()
+            self.get_firewall()
+            self.get_listen_port()
+            self.get_locale()
+            self.get_env()
+            self.get_fs_info()
+            self.get_lvm_info()
+            self.get_daemon_list()
+            self.get_security_info()
         except Exception as err:
             print str(err)
 
         finally:
-            # self.make_system_summary()
+            self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -551,10 +551,17 @@ class RhelFacts(AbstractFacts):
         None
 
     def get_daemon_list(self):
-        out = self.ssh.run_command("ss -nutlp | grep LISTEN")
+        out = self.ssh.run_command("systemctl list-unit-files")
 
         if out:
-          self.results['listen_port_list'] = {}
+          self.results['daemon_list'] = {}
+          for line in out.splitlines():
+            if 'STATE' in line:
+              continue
+
+            data = line.split()
+            if len(data) > 1:
+              self.results['daemon_list'][data[0]] = data[1]
 
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")
