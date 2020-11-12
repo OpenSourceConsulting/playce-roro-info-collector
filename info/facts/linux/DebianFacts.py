@@ -21,8 +21,7 @@ class DebianFacts(AbstractFacts):
 
   def __init__(self, params, release):
     AbstractFacts.__init__(self, params)
-    self.results = {}
-    self.results['distribution_version'] = release
+    self.results = {'distribution_version': release}
 
   def execute(self):
     try:
@@ -53,7 +52,7 @@ class DebianFacts(AbstractFacts):
       self.get_env()
       self.get_fs_info()
       self.get_lvm_info()
-      self.get_daemon_list();
+      self.get_daemon_list()
 
     except Exception as err:
       print str(err)
@@ -86,20 +85,6 @@ class DebianFacts(AbstractFacts):
   def get_hostname(self):
     out = self.ssh.run_command("uname -n")
     self.results['hostname'] = out.replace('\n','')
-
-  def check_path_exist(self, path):
-    f_template = self.CHECK_FILE_EXIT
-    out = self.ssh.run_command(f_template.replace('PATH',path))
-
-    if out == 'Y':
-      return True
-    else :
-      d_template = self.CHECK_DIR_EXIT
-      out = self.ssh.run_command(d_template.replace('PATH',path))
-      if out == 'Y':
-        return True;
-      else:
-        return False;
 
   def get_cpu_facts(self):
     self.results['processor'] = []
@@ -933,9 +918,23 @@ class DebianFacts(AbstractFacts):
     cur_chain[type][data[0]] = info
 
   def get_locale(self):
-    None
+    locale = self.ssh.run_command("locale")
+
+    if locale:
+      self.results['locale'] = dict()
+
+      for line in locale.splitlines():
+        key, value = line.split("=")
+        self.results['locale'][key]=value
   def get_env(self):
-    None
+    env = self.ssh.run_command("env")
+
+    if env:
+      self.results['env'] = dict()
+
+      for line in env.splitlines():
+        key, value = line.split("=")
+        self.results['env'][key]=value
   def get_lvm_info(self):
     None
   def get_fs_info(self):
