@@ -56,11 +56,12 @@ class AixFacts(AbstractFacts):
       self.get_env()
       self.get_fs_info()
       self.get_lvm_info()
+      self.get_daemon_list();
     except Exception as err:
       print str(err)
 
     finally:
-      self.system_summary = self.get_system_summary();
+      self.make_system_summary()
       self.facts["results"] = self.results
       return self.results
 
@@ -70,12 +71,9 @@ class AixFacts(AbstractFacts):
     self.results['distribution_version'] = data[0]
     self.results['distribution_release'] = data[1]
 
-    self.facts["system_summary"]["os"] = "AIX "+data[0]+"."+data[1]
-
   def get_hostname(self):
     out = self.ssh.run_command("/usr/bin/hostname")
     self.results['hostname'] = out.replace('\n', '')
-    self.facts["system_summary"]["hostname"] = self.results['hostname']
 
   def get_cpu_facts(self):
     self.results['processor'] = []
@@ -103,12 +101,6 @@ class AixFacts(AbstractFacts):
       data = out.split(' ')
       self.results['processor_cores'] = int(data[1])
 
-      self.facts["system_summary"]["processor_count"] = self.results[
-        'processor_count']
-      self.facts["system_summary"]["cores"] = self.results[
-        'processor_cores']
-      self.facts["system_summary"]["cpu"] = self.results['processor']
-
   def get_memory_facts(self):
     pagesize = 4096
     out = self.ssh.run_command("/usr/bin/vmstat -v")
@@ -120,8 +112,6 @@ class AixFacts(AbstractFacts):
         freecount = int(data[0])
     memtotal_mb = pagesize * pagecount // 1024 // 1024
     memfree_mb = pagesize * freecount // 1024 // 1024
-
-    self.facts["system_summary"]["memory"] = memtotal_mb
 
     self.results['memory'] = dict(memtotal_mb=memtotal_mb, memfree_mb=memfree_mb)
     # self.results['memory']["memtotal_mb"] = memtotal_mb
@@ -137,7 +127,6 @@ class AixFacts(AbstractFacts):
       swaptotal_mb = int(data[0].rstrip('MB'))
       percused = int(data[1].rstrip('%'))
       swapfree_mb = int(swaptotal_mb * (100 - percused) / 100)
-      self.facts["system_summary"]["swap"] = swaptotal_mb
       self.results['memory']['swaptotal_mb'] = swaptotal_mb
       self.results['memory']['swapfree_mb'] = swapfree_mb
 
@@ -148,19 +137,15 @@ class AixFacts(AbstractFacts):
     data = lines[0].split()
 
     self.results['kernel'] = data[1]
-    self.facts["system_summary"]["kernel"] = self.results['kernel']
 
   def get_bitmode(self):
     out = self.ssh.run_command("getconf KERNEL_BITMODE")
     self.results['architecture'] = out.replace('\n', '')
-    self.facts["system_summary"]["architecture"] = self.results['architecture']+"-bit"
 
   def get_dmi_facts(self):
     out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
     data = out.split()
     self.results['firmware_version'] = data[1].strip('IBM,')
-    self.facts["system_summary"]["firmware_version"] = self.results[
-      'firmware_version']
 
     out = self.ssh.run_command("/usr/sbin/lsconf")
     if out:
@@ -172,12 +157,6 @@ class AixFacts(AbstractFacts):
           self.results['lpar_info'] = data[1].strip()
         if 'System Model' in line:
           self.results['product_name'] = data[1].strip()
-
-      self.facts["system_summary"]["product_serial"] = self.results[
-        'product_serial']
-      self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
-      self.facts["system_summary"]["vendor"] = self.results[
-        'product_name']
 
   def get_df(self):
     out = self.ssh.run_command("/usr/bin/df -m")
@@ -192,7 +171,6 @@ class AixFacts(AbstractFacts):
                                                    fstype=self.get_fs_type(
                                                        pt[0]), size=pt[1],
                                                    free=pt[2])
-          self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
   def get_fs_type(self, device):
     short_device_name = device.split('/')[2]
@@ -498,7 +476,6 @@ class AixFacts(AbstractFacts):
           self.parse_unknown_line(words, current_if, ips)
 
     self.results['interfaces'] = interfaces
-    self.facts['system_summary']['network_info'] = interfaces
 
   def get_ps_lists(self):
     out = self.ssh.run_command("/usr/bin/ps -ef")
@@ -689,8 +666,50 @@ class AixFacts(AbstractFacts):
            key, value = line.split("=")
            self.results['file_system'][fs][key]=value
 
-  def get_deamon_list(self):
-      None
+  def get_daemon_list(self):
+      daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
+
+      if daemonList:
+        self.results['daemon_list'] = []
+
+        for line in daemonList.splitlines():
+
+          if 'PID' in line:
+            continue
+
+          data = line.split()
+
+          daemon = dict(name=data[0], group=None, pid=None, status=None)
+
+          if len(data) == 3:
+            if re.match('\d',data[1]):
+              daemon.update({
+                'group' : '',
+                'pid' : data[1],
+                'status' : data[2]
+              })
+            else:
+              daemon.update({
+                'group' : data[1],
+                'pid' : '',
+                'status' : data[2]
+              })
+          elif len(data) == 2:
+            daemon.update({
+              'group' : '',
+              'pid' : '',
+              'status' : data[1]
+            })
+          else:
+            daemon.update({
+              'group' : data[1],
+              'pid' : data[2],
+              'status' : data[3]
+            })
+
+          self.results['daemon_list'].append(daemon)
+
+
 
   def get_security_info(self):
       None
@@ -699,5 +718,24 @@ class AixFacts(AbstractFacts):
     None
 
 
-  def get_system_summary(self):
-      None
+  def make_system_summary(self):
+    self.facts["system_summary"]["os"] = "AIX "+self.results['distribution_version']+"."+self.results['distribution_release']
+    self.facts["system_summary"]["hostname"] = self.results['hostname']
+
+    self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+    self.facts["system_summary"]["cores"] = self.results['processor_cores']
+    self.facts["system_summary"]["cpu"] = self.results['processor']
+
+    self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+    self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+
+    self.facts["system_summary"]["kernel"] = self.results['kernel']
+    self.facts["system_summary"]["architecture"] = self.results['architecture']+"-bit"
+    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
+    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
+    self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
+    self.facts["system_summary"]["vendor"] = self.results['product_name']
+
+    self.facts["system_summary"]["disk_info"] = self.results['partitions']
+
+    self.facts['system_summary']['network_info'] = self.results['interfaces']

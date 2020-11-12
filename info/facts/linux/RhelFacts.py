@@ -19,8 +19,9 @@ ANSI_RE = [
 class RhelFacts(AbstractFacts):
 
   def __init__(self, params, release):
-    AbstractFacts.__init__(self, params, release)
+    AbstractFacts.__init__(self, params)
     self.results = {}
+    self.results['distribution_version'] = release
 
   def execute(self):
     try:
@@ -46,12 +47,17 @@ class RhelFacts(AbstractFacts):
       self.get_route_table()
       self.get_firewall()
       self.get_listen_port()
-
+      self.get_locale()
+      self.get_env()
+      self.get_fs_info()
+      self.get_lvm_info()
+      self.get_daemon_list();
 
     except Exception as err:
       print str(err)
 
     finally :
+      self.make_system_summary()
       self.facts['results'] = self.results
       return self.results
 
@@ -87,10 +93,6 @@ class RhelFacts(AbstractFacts):
     data = out.split(':')[1].strip().replace('\n','')
     self.results['processor'] = data
 
-    self.facts["system_summary"]["processor_count"] = self.results['processor_count']
-    self.facts["system_summary"]["processor_cores"] = self.results['processor_cores']
-    self.facts["system_summary"]["processor"] = data
-
 
   def get_memory_facts(self):
     self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
@@ -99,30 +101,24 @@ class RhelFacts(AbstractFacts):
       data = line.split()
       if 'total memory' in line:
         memtotal_mb = int(data[0]) // 1024
-        self.facts["system_summary"]["memtotal_mb"] = memtotal_mb
         self.results['memory']["memtotal_mb"] = memtotal_mb
       if 'free memory' in line:
         memfree_mb = int(data[0]) // 1024
-        self.facts["system_summary"]["memfree_mb"] = memfree_mb
         self.results['memory']["memfree_mb"] = memfree_mb
       if 'total swap' in line:
         swaptotal_mb = int(data[0]) // 1024
-        self.facts["system_summary"]["swaptotal_mb"] = swaptotal_mb
         self.results['memory']["swaptotal_mb"] = swaptotal_mb
       if 'free swap' in line:
         swapfree_mb = int(data[0]) // 1024
-        self.facts["system_summary"]["swapfree_mb"] = swapfree_mb
         self.results['memory']["swapfree_mb"] = swapfree_mb
 
   def get_kernel(self):
     out = self.ssh.run_command("uname -r")
-    self.results['kernal'] = out.replace('\n','')
-    self.facts["system_summary"]["kernal"] = out.replace('\n','')
+    self.results['kernel'] = out.replace('\n','')
 
   def get_bitmode(self):
     out = self.ssh.run_command("uname -m")
     self.results['architecture'] = out.replace('\n','')
-    self.facts["system_summary"]["architecture"] = out.replace('\n','')
 
   def get_df(self):
     out = self.ssh.run_command("df -Th")
@@ -422,15 +418,10 @@ class RhelFacts(AbstractFacts):
     out = self.ssh.run_command("dmidecode -s processor-manufacturer")
     self.results['product_name'] = ''.join(sorted(set(out), key=out.index))
 
-    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
-    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
-    self.facts["system_summary"]["product_name"] = self.results['product_name']
-
 
   def get_timezone(self):
     out = self.ssh.run_command("timedatectl | grep 'Time zone'")
     self.results['timezone'] =out.split(':')[1].strip().replace('\n','')
-    self.facts["system_summary"]["timezone"] = self.results['timezone']
 
   def get_route_table(self):
     out = self.ssh.run_command("ip route")
@@ -594,7 +585,29 @@ class RhelFacts(AbstractFacts):
     None
   def get_fs_info(self):
     None
-  def get_deamon_list(self):
+  def get_daemon_list(self):
     None
   def get_security_info(self):
     None
+
+  def make_system_summary(self):
+    self.facts["system_summary"]["os"] = self.results['distribution_version']
+    self.facts["system_summary"]["hostname"] = self.results['hostname']
+
+    self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+    self.facts["system_summary"]["cores"] = self.results['processor_cores']
+    self.facts["system_summary"]["cpu"] = self.results['processor']
+
+    self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+    self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+
+    self.facts["system_summary"]["kernel"] = self.results['kernel']
+    self.facts["system_summary"]["architecture"] = self.results['architecture']
+    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
+    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
+    # self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
+    self.facts["system_summary"]["vendor"] = self.results['product_name']
+
+    self.facts["system_summary"]["disk_info"] = self.results['partitions']
+
+    self.facts['system_summary']['network_info'] = self.results['interfaces']

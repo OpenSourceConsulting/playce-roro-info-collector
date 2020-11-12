@@ -13,11 +13,10 @@ else:
 
 class AbstractFacts(ABC):
 
-  def __init__(self, params, release="none", isSudo=True):
+  def __init__(self, params, isSudo=True):
     self.ssh = SshBase(isSudo=isSudo)
     self.ssh.connect(params)
     self.facts = {};
-    self.facts["results"] = dict(distribution_version=release);
     self.facts["system_summary"] = dict();
     self.logger = getLogger(params.get('logDir'))
 
@@ -100,7 +99,7 @@ class AbstractFacts(ABC):
   def get_fs_info(self): pass
 
   @abc.abstractmethod
-  def get_deamon_list(self): pass
+  def get_daemon_list(self): pass
 
   @abc.abstractmethod
   def get_security_info(self): pass
