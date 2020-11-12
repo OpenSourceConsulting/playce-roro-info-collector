@@ -53,7 +53,7 @@ class DebianFacts(AbstractFacts):
       self.get_fs_info()
       self.get_lvm_info()
       self.get_daemon_list()
-
+      self.get_security_info()
     except Exception as err:
       print str(err)
 
@@ -942,7 +942,18 @@ class DebianFacts(AbstractFacts):
   def get_daemon_list(self):
     None
   def get_security_info(self):
-    None
+    out = self.ssh.run_command("cat /etc/login.defs")
+
+    if out:
+      self.results['security'] = {"password": dict()}
+      for line in out.splitlines():
+
+        regex = re.compile('^\#')
+        if regex.match(line) or line in ['', '\n']:
+          continue
+
+        key, value = line.split()
+        self.results['security']["password"][key] = value
 
   def make_system_summary(self):
     self.facts["system_summary"]["os"] = self.results['distribution_version']

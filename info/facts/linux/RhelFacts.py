@@ -27,39 +27,39 @@ class RhelFacts(AbstractFacts):
 
     def execute(self):
         try:
-            self.get_hostname()
-            self.get_cpu_facts()
-            self.get_memory_facts()
-            self.get_kernel()
-            self.get_bitmode()
-            self.get_dmi_facts()
-            self.get_interfaces_info()
-            self.get_vgs_facts()
-            self.get_users()
-            self.get_groups()
-            self.get_password_of_users()
-            self.get_ulimits()
-            self.get_crontabs()
-            self.get_default_interfaces()
-            self.get_df()
-            # self.get_extra_partitions()
-            self.get_ps_lists()
-            self.get_kernel_parameters()
-            self.get_timezone()
-            self.get_route_table()
-            self.get_firewall()
-            self.get_listen_port()
-            self.get_locale()
-            self.get_env()
-            self.get_fs_info()
-            self.get_lvm_info()
-            self.get_daemon_list()
-
+            # self.get_hostname()
+            # self.get_cpu_facts()
+            # self.get_memory_facts()
+            # self.get_kernel()
+            # self.get_bitmode()
+            # self.get_dmi_facts()
+            # self.get_interfaces_info()
+            # self.get_vgs_facts()
+            # self.get_users()
+            # self.get_groups()
+            # self.get_password_of_users()
+            # self.get_ulimits()
+            # self.get_crontabs()
+            # self.get_default_interfaces()
+            # self.get_df()
+            # # self.get_extra_partitions()
+            # self.get_ps_lists()
+            # self.get_kernel_parameters()
+            # self.get_timezone()
+            # self.get_route_table()
+            # self.get_firewall()
+            # self.get_listen_port()
+            # self.get_locale()
+            # self.get_env()
+            # self.get_fs_info()
+            # self.get_lvm_info()
+            # self.get_daemon_list()
+            self.get_security_info();
         except Exception as err:
             print str(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -479,41 +479,6 @@ class RhelFacts(AbstractFacts):
                     self.results['listen_port_list'][data[0]][l_port].append(port_info)
 
     def get_firewall(self):
-        """
-    Chain INPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:21
-    2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8000
-    3    DROP       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8000
-    4    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80
-    5    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080
-
-    Chain OUTPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:21
-
-    Chain FORWARD (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80
-    2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080
-
-    Chain PREROUTING (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80 to:192.168.0.3
-    2    DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080 to:192.168.0.4
-
-    Chain INPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-
-    Chain OUTPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-
-    Chain POSTROUTING (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    SNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80 to:192.168.0.2
-    2    SNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080 to:192.168.0.2
-    :return:
-    """
         commands = [
             'iptables -L --line-number -n',
             'iptables -t nat -L --line-number -n'
@@ -592,7 +557,18 @@ class RhelFacts(AbstractFacts):
           self.results['listen_port_list'] = {}
 
     def get_security_info(self):
-        None
+        out = self.ssh.run_command("cat /etc/login.defs")
+
+        if out:
+          self.results['security'] = {"password": dict()}
+          for line in out.splitlines():
+
+              regex = re.compile('^\#')
+              if regex.match(line) or line in ['', '\n']:
+                continue
+
+              key, value = line.split()
+              self.results['security']["password"][key] = value
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
