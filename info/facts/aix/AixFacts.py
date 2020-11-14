@@ -24,7 +24,7 @@ ANSI_RE = [
 class AixFacts(AbstractFacts):
 
   def __init__(self, params):
-    AbstractFacts.__init__(self, params, "AIX", isSudo=False)
+    AbstractFacts.__init__(self, params, isSudo=False)
     self.results = {}
 
   def execute(self):
@@ -656,7 +656,7 @@ class AixFacts(AbstractFacts):
 
         regex = re.compile('^\*')
         if regex.match(line):
-          continue
+            continue
 
         if ":" in line:
            fs = line.split(":")[0]
@@ -717,6 +717,8 @@ class AixFacts(AbstractFacts):
   def get_firewall(self):
     None
 
+  def get_dns(self):
+    None
 
   def make_system_summary(self):
     self.facts["system_summary"]["os"] = "AIX "+self.results['distribution_version']+"."+self.results['distribution_release']

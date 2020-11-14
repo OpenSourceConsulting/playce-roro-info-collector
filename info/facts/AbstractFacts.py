@@ -13,7 +13,7 @@ else:
 
 class AbstractFacts(ABC):
 
-  def __init__(self, params, isSudo=True):
+  def __init__(self, params, isSudo = True):
     self.ssh = SshBase(isSudo=isSudo)
     self.ssh.connect(params)
     self.facts = {};
@@ -103,6 +103,9 @@ class AbstractFacts(ABC):
 
   @abc.abstractmethod
   def get_security_info(self): pass
+
+  @abc.abstractmethod
+  def get_dns(self): pass
 
   def get_results(self):
     self.logger.debug("get Result")

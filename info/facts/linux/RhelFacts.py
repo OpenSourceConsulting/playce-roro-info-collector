@@ -52,14 +52,16 @@ class RhelFacts(AbstractFacts):
             self.get_locale()
             self.get_env()
             self.get_fs_info()
+            self.get_fstab_info()
             self.get_lvm_info()
             self.get_daemon_list()
             self.get_security_info()
+            self.get_dns()
         except Exception as err:
             print str(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -408,41 +410,59 @@ class RhelFacts(AbstractFacts):
         self.results['timezone'] = out.split(':')[1].strip().replace('\n', '')
 
     def get_route_table(self):
-        out = self.ssh.run_command("ip route")
-        self.results['route_table'] = dict(list=[])
-        for line in out.splitlines():
-            data = line.split()
+        out = self.ssh.run_command("netstat -rn |  tail -n+3")
 
-            info = {
-                "destination": data[0],
-                "Iface": data[data.index("dev") + 1]
-            }
+        if out:
+            self.results['route_table'] = []
+            # Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+            for line in out.splitlines():
+                data = line.split()
+                self.results['route_table'].append({
+                    'destination' : data[0],
+                    'gateway' : data[1],
+                    'genmask' : data[2],
+                    'flags' : data[3],
+                    'mss' : data[4],
+                    'window' : data[5],
+                    'irtt' : data[6],
+                    'iface' : data[7],
+                })
 
-            if 'via' in line:
-                info["Gateway"] = data[data.index("via") + 1]
-            else:
-                info["Gateway"] = '0.0.0.0'
-
-            # if 'proto' in line:
-            #   info["Protocol"] = data[data.index("proto")+1]
-            # else:
-            #   info["Protocol"] = ''
-            # if 'metric' in line:
-            #   info["Metric"] = data[data.index("metric")+1]
-            # else:
-            #   info["Metric"] = ''
-            #
-            # if 'scope' in line:
-            #   info["Scope"] = data[data.index("scope")+1]
-            # else:
-            #   info["Scope"] = ''
-            #
-            # if 'src' in line:
-            #   info["Src"] = data[data.index("src")+1]
-            # else:
-            #   info["Src"] = ''
-
-            self.results['route_table']['list'].append(info)
+                # out = self.ssh.run_command("ip route")
+        # self.results['route_table'] = dict(list=[])
+        # for line in out.splitlines():
+        #     data = line.split()
+        #
+        #     info = {
+        #         "destination": data[0],
+        #         "Iface": data[data.index("dev") + 1]
+        #     }
+        #
+        #     if 'via' in line:
+        #         info["Gateway"] = data[data.index("via") + 1]
+        #     else:
+        #         info["Gateway"] = '0.0.0.0'
+        #
+        #     # if 'proto' in line:
+        #     #   info["Protocol"] = data[data.index("proto")+1]
+        #     # else:
+        #     #   info["Protocol"] = ''
+        #     # if 'metric' in line:
+        #     #   info["Metric"] = data[data.index("metric")+1]
+        #     # else:
+        #     #   info["Metric"] = ''
+        #     #
+        #     # if 'scope' in line:
+        #     #   info["Scope"] = data[data.index("scope")+1]
+        #     # else:
+        #     #   info["Scope"] = ''
+        #     #
+        #     # if 'src' in line:
+        #     #   info["Src"] = data[data.index("src")+1]
+        #     # else:
+        #     #   info["Src"] = ''
+        #
+        #     self.results['route_table']['list'].append(info)
 
     def get_listen_port(self):
         out = self.ssh.run_command("ss -nutlp | grep LISTEN")
@@ -545,10 +565,95 @@ class RhelFacts(AbstractFacts):
             self.results['env'][key]=value
 
     def get_lvm_info(self):
-        None
+        vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
+
+        if vgs:
+            self.results['vgs'] = {}
+            for vg in vgs.splitlines():
+                self.results['vgs'][vg] = dict(pvs=[], lvs=[])
+
+        lvs = self.ssh.run_command("lvdisplay")
+
+        if lvs:
+            for line in lvs.splitlines():
+                line = line.strip()
+                if re.match('(-+\s\w+\s\w+\s+-+)',line):
+                    lv_info = {}
+                if 'LV Path' in line:
+                    value = line.replace("LV Path", "").strip()
+                    lv_info.update({"lv_path" : value})
+                elif 'LV Name' in line:
+                    value = line.replace("LV Name", "").strip()
+                    lv_info.update({"lv_name" : value})
+                elif 'VG Name' in line:
+                    value = line.replace("VG Name", "").strip()
+                    lv_info.update({"vg_name" : value})
+                    self.results['vgs'][value]['lvs'].append(lv_info)
+                elif 'LV UUID' in line:
+                    value = line.replace("LV UUID", "").strip()
+                    lv_info.update({"lv_uuid" : value})
+                elif 'LV Size' in line:
+                    value = line.replace("LV Size", "").strip()
+                    lv_info.update({"lv_size" : value})
+                # elif 'LV Write Access' in line:
+                # elif 'Current LE' in line:
+                # elif 'Block device' in line:
+                # elif 'LV Creation host, time' in line:
+
+        pvs = self.ssh.run_command("pvdisplay")
+
+        if pvs:
+            for line in pvs.splitlines():
+                line = line.strip()
+                if re.match('(-+\s\w+\s\w+\s+-+)',line):
+                    pv_info = {}
+                elif 'PV Name' in line:
+                    value = line.replace("PV Name", "").strip()
+                    pv_info.update({"pv_name" : value})
+                elif 'VG Name' in line:
+                    value = line.replace("VG Name", "").strip()
+                    pv_info.update({"vg_name" : value})
+                    self.results['vgs'][value]['pvs'].append(pv_info)
+                elif 'PV Size' in line:
+                    value = line.replace("PV Size", "").strip()
+                    pv_info.update({"pv_size" : value})
+                elif 'Allocatable' in line:
+                    value = line.replace("Allocatable", "").strip()
+                    pv_info.update({"allocatable" : value})
+                elif 'PE Size' in line:
+                    value = line.replace("PE Size", "").strip()
+                    pv_info.update({"pe_size" : value})
+                elif 'Total PE' in line:
+                    value = line.replace("Total PE", "").strip()
+                    pv_info.update({"total_pe" : value})
+                elif 'Free PE' in line:
+                    value = line.replace("Free PE", "").strip()
+                    pv_info.update({"free_pe" : value})
+                elif 'Allocated PE' in line:
+                    value = line.replace("Allocated PE", "").strip()
+                    pv_info.update({"allocated_pe" : value})
+                elif 'PV UUID' in line:
+                    value = line.replace("PV UUID", "").strip()
+                    pv_info.update({"pv_uuid" : value})
+
 
     def get_fs_info(self):
         None
+
+    def get_fstab_info(self):
+        fstab = self.ssh.run_command("cat /etc/fstab")
+
+        if fstab:
+            self.results['fstab'] = []
+            regex = re.compile('^\#')
+            for line in fstab.splitlines():
+                if regex.match(line) or line in ['', '\n']:
+                    continue
+                info = line.split()
+
+                self.results['fstab'].append(
+                    dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
+                )
 
     def get_daemon_list(self):
         out = self.ssh.run_command("systemctl list-unit-files")
@@ -557,7 +662,7 @@ class RhelFacts(AbstractFacts):
           self.results['daemon_list'] = {}
           for line in out.splitlines():
             if 'STATE' in line:
-              continue
+                continue
 
             data = line.split()
             if len(data) > 1:
@@ -576,6 +681,20 @@ class RhelFacts(AbstractFacts):
 
               key, value = line.split()
               self.results['security']["password"][key] = value
+
+    def get_dns(self):
+        out = self.ssh.run_command("cat /etc/resolv.conf")
+
+        if out:
+            self.results['dns'] = []
+            for line in out.splitlines():
+
+                regex = re.compile('^\#')
+                if regex.match(line) or line in ['', '\n']:
+                    continue
+
+                data = line.split()
+                self.results['dns'].append(data[1])
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
