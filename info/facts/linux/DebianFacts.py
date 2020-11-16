@@ -997,18 +997,29 @@ class DebianFacts(AbstractFacts):
                 )
 
     def get_daemon_list(self):
-        out = self.ssh.run_command("service --status-all")
+        # out = self.ssh.run_command("service --status-all")
+        #
+        # if out:
+        #     self.results['daemon_list'] = {}
+        #     for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
+        #
+        #         if '+' in m.group(1):
+        #             self.results['daemon_list'][m.group(2)] = "running"
+        #         elif '-' in m.group(1):
+        #             self.results['daemon_list'][m.group(2)] = "stop"
+        #         else:
+        #             self.results['daemon_list'][m.group(2)] = "unknown"
+        out = self.ssh.run_command("systemctl list-unit-files")
 
         if out:
             self.results['daemon_list'] = {}
-            for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
+            for line in out.splitlines():
+                if 'STATE' in line:
+                    continue
 
-                if '+' in m.group(1):
-                    self.results['daemon_list'][m.group(2)] = "running"
-                elif '-' in m.group(1):
-                    self.results['daemon_list'][m.group(2)] = "stop"
-                else:
-                    self.results['daemon_list'][m.group(2)] = "unknown"
+                data = line.split()
+                if len(data) > 1:
+                    self.results['daemon_list'][data[0]] = data[1]
 
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")
