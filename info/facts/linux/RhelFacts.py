@@ -24,6 +24,7 @@ class RhelFacts(AbstractFacts):
     def __init__(self, params, release):
         AbstractFacts.__init__(self, params)
         self.results = {'distribution_version': release}
+        self.results = {'family': "Redhat"}
 
     def execute(self):
         try:
