@@ -500,6 +500,8 @@ class DebianFacts(AbstractFacts):
                     self.results['processes'][data[7]] = dict(uid=data[0], cmd=data[8:])
                     # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
                 elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
+                    if re.match('\[(.*?)\]', data[7]):
+                        continue
                     self.results['processes'][data[7]] = dict(uid=data[0], cmd=data[7:])
                     # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
