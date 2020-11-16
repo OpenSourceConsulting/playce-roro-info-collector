@@ -278,6 +278,7 @@ class RhelFacts(AbstractFacts):
                     current_if = self.parse_interface_line(words)
                     interfaces[current_if['device']] = current_if
                     current_if['gateway'] = self.get_default_gateway(current_if)
+                    current_if['script'] = self.get_ifcfg_script(current_if)
                     # self.get_default_gateway(current_if)
                 # elif words[0].startswith('options='):
                 #   self.parse_options_line(words, current_if, ips)
@@ -302,7 +303,7 @@ class RhelFacts(AbstractFacts):
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown', 'script' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -714,6 +715,14 @@ class RhelFacts(AbstractFacts):
                     if words[words.index("dev") + 1] == current_if['device']:
                         return words[2]
 
+    def get_ifcfg_script(self, current_if):
+        # Centos 7.7
+        file = self.ssh.run_command('ls /etc/sysconfig/network-scripts/ifcfg-%s' % current_if['device'])
+
+        if file:
+            return self.ssh.run_command("cat %s" % file)
+
+
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
@@ -745,5 +754,7 @@ class RhelFacts(AbstractFacts):
 
     def make_network_summary(self):
         self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
-        self.facts['system_summary']['network_info']['dns'] = self.results['dns']
-        self.facts['system_summary']['network_info']['script'] = {}
+        if 'dns' in self.results:
+            self.facts['system_summary']['network_info']['dns'] = self.results['dns']
+        else:
+            self.facts['system_summary']['network_info']['dns'] = []

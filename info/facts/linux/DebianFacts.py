@@ -43,7 +43,7 @@ class DebianFacts(AbstractFacts):
             self.get_password_of_users()
             self.get_ulimits()
             self.get_crontabs()
-            self.get_default_interfaces()
+            # self.get_default_interfaces()
             self.get_df()
             # self.get_extra_partitions()
             self.get_ps_lists()
@@ -156,7 +156,7 @@ class DebianFacts(AbstractFacts):
 
     def get_kernel(self):
         out = self.ssh.run_command("uname -r")
-        self.results['kernal'] = out.replace('\n', '')
+        self.results['kernel'] = out.replace('\n', '')
 
     def get_bitmode(self):
         out = self.ssh.run_command("uname -m")
@@ -375,26 +375,7 @@ class DebianFacts(AbstractFacts):
                         self.results['NICs']['v6']['interface'] = words[7]
 
     def get_interfaces_info(self):
-        """
-    ens3      Link encap:Ethernet  HWaddr 56:6f:30:d5:00:82
-          inet addr:192.168.0.151  Bcast:192.168.255.255  Mask:255.255.0.0
-          inet6 addr: fe80::546f:30ff:fed5:82/64 Scope:Link
-          inet6 addr: fd0c:b572:ca6c:0:546f:30ff:fed5:82/64 Scope:Global
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1702011 errors:0 dropped:36 overruns:0 frame:0
-          TX packets:15752 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:209853896 (209.8 MB)  TX bytes:2437673 (2.4 MB)
 
-    lo        Link encap:Local Loopback
-              inet addr:127.0.0.1  Mask:255.0.0.0
-              inet6 addr: ::1/128 Scope:Host
-              UP LOOPBACK RUNNING  MTU:65536  Metric:1
-              RX packets:160 errors:0 dropped:0 overruns:0 frame:0
-              TX packets:160 errors:0 dropped:0 overruns:0 carrier:0
-              collisions:0 txqueuelen:1
-              RX bytes:11840 (11.8 KB)  TX bytes:11840 (11.8 KB)
-    """
         interfaces = {}
         current_if = {}
         ips = dict(
@@ -402,28 +383,31 @@ class DebianFacts(AbstractFacts):
             all_ipv6_addresses=[],
         )
 
-        out = self.ssh.run_command("ifconfig -a")
+        out = self.ssh.run_command("ip addr")
         for line in out.splitlines():
             if line:
                 words = line.split()
 
                 # only this condition differs from GenericBsdIfconfigNetwork
                 # centos 6 difference
-                if 'Link encap' in line:
+                if re.match('^\d*:', line):
                     current_if = self.parse_interface_line(words)
                     interfaces[current_if['device']] = current_if
-                elif words[0].startswith('options='):
-                    self.parse_options_line(words, current_if, ips)
-                elif words[0] == 'nd6':
-                    self.parse_nd6_line(words, current_if, ips)
-                elif words[0] == 'ether':
-                    self.parse_ether_line(words, current_if, ips)
-                elif words[0] == 'media:':
-                    self.parse_media_line(words, current_if, ips)
-                elif words[0] == 'status:':
-                    self.parse_status_line(words, current_if, ips)
-                elif words[0] == 'lladdr':
-                    self.parse_lladdr_line(words, current_if, ips)
+                    current_if['gateway'] = self.get_default_gateway(current_if)
+                    current_if['script'] = self.get_ifcfg_script(current_if)
+                    # self.get_default_gateway(current_if)
+                # elif words[0].startswith('options='):
+                #   self.parse_options_line(words, current_if, ips)
+                # elif words[0] == 'nd6':
+                #   self.parse_nd6_line(words, current_if, ips)
+                # elif words[0] == 'ether':
+                #   self.parse_ether_line(words, current_if, ips)
+                # elif words[0] == 'media:':
+                #   self.parse_media_line(words, current_if, ips)
+                # elif words[0] == 'status:':
+                #   self.parse_status_line(words, current_if, ips)
+                # elif words[0] == 'lladdr':
+                #   self.parse_lladdr_line(words, current_if, ips)
                 elif words[0] == 'inet':
                     self.parse_inet_line(words, current_if, ips)
                 elif words[0] == 'inet6':
@@ -434,8 +418,8 @@ class DebianFacts(AbstractFacts):
         self.results['interfaces'] = interfaces
 
     def parse_interface_line(self, words):
-        device = words[0][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown'}
+        device = words[1][0:-1]
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown', 'script' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -468,30 +452,21 @@ class DebianFacts(AbstractFacts):
         current_if['lladdr'] = words[1]
 
     def parse_inet_line(self, words, current_if, ips):
-        for idx, word in enumerate(words):
-            if ':' in word:
-                words[idx] = word[word.index(':') + 1:]
-        address = {'address': words[1]}
         # deal with hex netmask
-        if re.match('([0-9a-f]){8}', words[len(words) - 1]) and len(words[len(words) - 1]) == 8:
-            words[len(words) - 1] = '0x' + words[len(words) - 1]
-        if words[len(words) - 1].startswith('0x'):
-            address['netmask'] = socket.inet_ntoa(struct.pack('!L', int(words[len(words) - 1], base=16)))
-        else:
-            # otherwise assume this is a dotted quad
-            address['netmask'] = words[len(words) - 1]
+        s_addr, s_net_bits = words[1].split('/')
+        address = {'address': s_addr}
+
+        address['netmask'] = socket.inet_ntoa(struct.pack('!I', (1 << 32) - (1 << 32 - int(s_net_bits))))
+
         # calculate the network
         address_bin = struct.unpack('!L', socket.inet_aton(address['address']))[0]
         netmask_bin = struct.unpack('!L', socket.inet_aton(address['netmask']))[0]
-        address['network'] = socket.inet_ntoa(struct.pack('!L', address_bin & netmask_bin))
         # broadcast may be given or we need to calculate
-        if len(words) > 5:
-            address['broadcast'] = words[5]
-        else:
-            address['broadcast'] = socket.inet_ntoa(struct.pack('!L', address_bin | (~netmask_bin & 0xffffffff)))
+        address['broadcast'] = socket.inet_ntoa(struct.pack('!L', address_bin | (~netmask_bin & 0xffffffff)))
         # add to our list of addresses
         if not words[1].startswith('127.'):
             ips['all_ipv4_addresses'].append(address['address'])
+
         current_if['ipv4'].append(address)
 
     def parse_inet6_line(self, words, current_if, ips):
@@ -1068,6 +1043,31 @@ class DebianFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
+    def get_default_gateway(self, current_if):
+        out = self.ssh.run_command('ip route | grep default')
+
+        if out:
+            lines = out.splitlines()
+            for line in lines:
+                words = line.split()
+                if len(words) > 1 and words[0] == 'default':
+                    if words[words.index("dev") + 1] == current_if['device']:
+                        return words[2]
+
+    def get_ifcfg_script(self, current_if):
+        type = self.ssh.run_command('cat /etc/*-release | grep DISTRIB_ID | cut -f2 -d "="')
+        if 'Ubuntu' in type:
+            version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
+            version = float(version.replace('\"',''))
+            if version >= 17.10:
+                filePath = "/etc/netplan/*.yaml"
+            elif version <= 17.04:
+                filePath = "/etc/network/interfaces"
+
+        file = self.ssh.run_command('ls %s' % filePath)
+
+        if file:
+            return self.ssh.run_command("cat %s" % file)
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
@@ -1097,7 +1097,9 @@ class DebianFacts(AbstractFacts):
     def make_disk_summary(self):
         self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
-    def make_network_summmary(self):
+    def make_network_summary(self):
         self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
-        self.facts['system_summary']['network_info']['dns'] = self.results['dns']
-        self.facts['system_summary']['network_info']['script'] = {}
+        if 'dns' in self.results:
+            self.facts['system_summary']['network_info']['dns'] = self.results['dns']
+        else:
+            self.facts['system_summary']['network_info']['dns'] = []
