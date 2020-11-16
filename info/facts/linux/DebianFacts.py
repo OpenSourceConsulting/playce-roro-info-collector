@@ -23,8 +23,10 @@ class DebianFacts(AbstractFacts):
 
     def __init__(self, params, release):
         AbstractFacts.__init__(self, params)
-        self.results = {'distribution_version': release}
-        self.results = {'family': "Debian"}
+        self.results = {
+            'distribution_version': release,
+            'family': "Redhat"
+        }
 
     def execute(self):
         try:
@@ -772,14 +774,14 @@ class DebianFacts(AbstractFacts):
             for line in out.splitlines():
                 data = line.split()
                 self.results['route_table'].append({
-                    'destination' : data[0],
-                    'gateway' : data[1],
-                    'genmask' : data[2],
-                    'flags' : data[3],
-                    'mss' : data[4],
-                    'window' : data[5],
-                    'irtt' : data[6],
-                    'iface' : data[7],
+                    'destination': data[0],
+                    'gateway': data[1],
+                    # 'genmask' : data[2],
+                    # 'flags' : data[3],
+                    # 'mss' : data[4],
+                    # 'window' : data[5],
+                    # 'irtt' : data[6],
+                    'iface': data[7],
                 })
 
     def get_listen_port(self):
@@ -1023,6 +1025,7 @@ class DebianFacts(AbstractFacts):
                 self.results['fstab'].append(
                     dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
                 )
+
     def get_daemon_list(self):
         out = self.ssh.run_command("service --status-all")
 
@@ -1053,9 +1056,8 @@ class DebianFacts(AbstractFacts):
 
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
-
+        self.results['dns'] = []
         if out:
-            self.results['dns'] = []
             for line in out.splitlines():
 
                 regex = re.compile('^\#')
@@ -1063,18 +1065,13 @@ class DebianFacts(AbstractFacts):
                     continue
 
                 data = line.split()
-                self.results['dns'].append(data[1])
+                for ns in data[1:]:
+                    self.results['dns'].append(ns)
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
-
-        self.facts["system_summary"]["processor_count"] = self.results['processor_count']
-        self.facts["system_summary"]["cores"] = self.results['processor_cores']
-        self.facts["system_summary"]["cpu"] = self.results['processor']
-
-        self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
-        self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+        self.facts["system_summary"]["family"] = self.results['family']
 
         self.facts["system_summary"]["kernel"] = self.results['kernel']
         self.facts["system_summary"]["architecture"] = self.results['architecture']
@@ -1083,6 +1080,24 @@ class DebianFacts(AbstractFacts):
         # self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
         self.facts["system_summary"]["vendor"] = self.results['product_name']
 
+        self.make_cpu_summary()
+        self.make_memory_summary()
+        self.make_disk_summary()
+        self.make_network_summary()
+
+    def make_cpu_summary(self):
+        self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+        self.facts["system_summary"]["cores"] = self.results['processor_cores']
+        self.facts["system_summary"]["cpu"] = self.results['processor']
+
+    def make_memory_summary(self):
+        self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+        self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+
+    def make_disk_summary(self):
         self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
-        self.facts['system_summary']['network_info'] = self.results['interfaces']
+    def make_network_summmary(self):
+        self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
+        self.facts['system_summary']['network_info']['dns'] = self.results['dns']
+        self.facts['system_summary']['network_info']['script'] = {}

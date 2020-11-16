@@ -43,7 +43,7 @@ class AixFacts(AbstractFacts):
       self.get_password_of_users()
       self.get_ulimits()
       self.get_crontabs()
-      self.get_default_interfaces()
+      # self.get_default_interfaces()
       self.get_df()
       self.get_extra_partitions()
       self.get_ps_lists()
@@ -56,7 +56,8 @@ class AixFacts(AbstractFacts):
       self.get_env()
       self.get_fs_info()
       self.get_lvm_info()
-      self.get_daemon_list();
+      self.get_daemon_list()
+      self.get_dns()
     except Exception as err:
       print str(err)
 
@@ -456,6 +457,7 @@ class AixFacts(AbstractFacts):
         if re.match('^\w*\d*:', line):
           current_if = self.parse_interface_line(words)
           interfaces[current_if['device']] = current_if
+          current_if['gateway'] = self.get_default_gateway(current_if)
         elif words[0].startswith('options='):
           self.parse_options_line(words, current_if, ips)
         elif words[0] == 'nd6':
@@ -522,7 +524,7 @@ class AixFacts(AbstractFacts):
   def get_route_table(self):
     out = self.ssh.run_command("/usr/bin/netstat -rn")
 
-    self.results['route_table'] = dict(list=[])
+    self.results['route_table'] = []
 
     dd = out.split('\n\n')
     for idx, data in enumerate(dd):
@@ -533,12 +535,12 @@ class AixFacts(AbstractFacts):
 
         info = {
           "destination": words[0],
-          "Gateway": words[1],
+          "gateway": words[1],
           # "Flags" : words[2],
-          "Iface": words[5],
+          "iface": words[5],
         }
 
-        self.results['route_table']['list'].append(info)
+        self.results['route_table'].append(info)
 
   def get_listen_port(self):
     ps_list = self.ssh.run_command("/usr/bin/netstat -Aan | grep LISTEN")
@@ -718,26 +720,60 @@ class AixFacts(AbstractFacts):
     None
 
   def get_dns(self):
-    None
+      out = self.ssh.run_command("cat /etc/resolv.conf")
+      self.results['dns'] = []
+      if out:
+        for line in out.splitlines():
+
+          regex = re.compile('^\#')
+          if regex.match(line) or line in ['', '\n']:
+            continue
+
+          data = line.split()
+          for ns in data[1:]:
+            self.results['dns'].append(ns)
+
+  def get_default_gateway(self, current_if):
+      out = self.ssh.run_command('netstat -rn | grep default')
+
+      if out:
+        lines = out.splitlines()
+        for line in lines:
+            words = line.split()
+            if len(words) > 1 and words[0] == 'default':
+                if words[5] == current_if['device']:
+                    return words[1]
 
   def make_system_summary(self):
-    self.facts["system_summary"]["os"] = "AIX "+self.results['distribution_version']+"."+self.results['distribution_release']
+    self.facts["system_summary"]["os"] = self.results['distribution_version']
     self.facts["system_summary"]["hostname"] = self.results['hostname']
+    # self.facts["system_summary"]["family"] = self.results['family']
 
+    self.facts["system_summary"]["kernel"] = self.results['kernel']
+    self.facts["system_summary"]["architecture"] = self.results['architecture']
+    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
+    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
+    # self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
+    self.facts["system_summary"]["vendor"] = self.results['product_name']
+
+    self.make_cpu_summary()
+    self.make_memory_summary()
+    self.make_disk_summary()
+    self.make_network_summary()
+
+  def make_cpu_summary(self):
     self.facts["system_summary"]["processor_count"] = self.results['processor_count']
     self.facts["system_summary"]["cores"] = self.results['processor_cores']
     self.facts["system_summary"]["cpu"] = self.results['processor']
 
+  def make_memory_summary(self):
     self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
     self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
 
-    self.facts["system_summary"]["kernel"] = self.results['kernel']
-    self.facts["system_summary"]["architecture"] = self.results['architecture']+"-bit"
-    self.facts["system_summary"]["firmware_version"] = self.results['firmware_version']
-    self.facts["system_summary"]["product_serial"] = self.results['product_serial']
-    self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
-    self.facts["system_summary"]["vendor"] = self.results['product_name']
-
+  def make_disk_summary(self):
     self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
-    self.facts['system_summary']['network_info'] = self.results['interfaces']
+  def make_network_summary(self):
+    self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
+    self.facts['system_summary']['network_info']['dns'] = self.results['dns']
+    self.facts['system_summary']['network_info']['script'] = {}

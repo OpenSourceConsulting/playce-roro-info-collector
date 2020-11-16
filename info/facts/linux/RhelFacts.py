@@ -23,8 +23,10 @@ class RhelFacts(AbstractFacts):
 
     def __init__(self, params, release):
         AbstractFacts.__init__(self, params)
-        self.results = {'distribution_version': release}
-        self.results = {'family': "Redhat"}
+        self.results = {
+            'distribution_version': release,
+            'family': "Redhat"
+        }
 
     def execute(self):
         try:
@@ -41,7 +43,7 @@ class RhelFacts(AbstractFacts):
             self.get_password_of_users()
             self.get_ulimits()
             self.get_crontabs()
-            self.get_default_interfaces()
+            # self.get_default_interfaces()
             self.get_df()
             # self.get_extra_partitions()
             self.get_ps_lists()
@@ -62,7 +64,7 @@ class RhelFacts(AbstractFacts):
             print str(err)
 
         finally:
-            # self.make_system_summary()
+            self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -263,8 +265,8 @@ class RhelFacts(AbstractFacts):
         )
 
         """
-      Red Hat - ifconfig -a deprecate (ip addr)
-    """
+            Red Hat - ifconfig -a deprecate (ip addr)
+        """
         out = self.ssh.run_command("ip addr")
         for line in out.splitlines():
             if line:
@@ -275,6 +277,8 @@ class RhelFacts(AbstractFacts):
                 if re.match('^\d*:', line):
                     current_if = self.parse_interface_line(words)
                     interfaces[current_if['device']] = current_if
+                    current_if['gateway'] = self.get_default_gateway(current_if)
+                    # self.get_default_gateway(current_if)
                 # elif words[0].startswith('options='):
                 #   self.parse_options_line(words, current_if, ips)
                 # elif words[0] == 'nd6':
@@ -298,7 +302,7 @@ class RhelFacts(AbstractFacts):
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -345,6 +349,7 @@ class RhelFacts(AbstractFacts):
         # add to our list of addresses
         if not words[1].startswith('127.'):
             ips['all_ipv4_addresses'].append(address['address'])
+
         current_if['ipv4'].append(address)
 
     def parse_inet6_line(self, words, current_if, ips):
@@ -359,6 +364,7 @@ class RhelFacts(AbstractFacts):
         localhost6 = ['::1', '::1/128', 'fe80::1%lo0']
         if address['address'] not in localhost6:
             ips['all_ipv6_addresses'].append(address['address'])
+
         current_if['ipv6'].append(address)
 
     def parse_unknown_line(self, words, current_if, ips):
@@ -421,11 +427,11 @@ class RhelFacts(AbstractFacts):
                 self.results['route_table'].append({
                     'destination' : data[0],
                     'gateway' : data[1],
-                    'genmask' : data[2],
-                    'flags' : data[3],
-                    'mss' : data[4],
-                    'window' : data[5],
-                    'irtt' : data[6],
+                    # 'genmask' : data[2],
+                    # 'flags' : data[3],
+                    # 'mss' : data[4],
+                    # 'window' : data[5],
+                    # 'irtt' : data[6],
                     'iface' : data[7],
                 })
 
@@ -685,9 +691,8 @@ class RhelFacts(AbstractFacts):
 
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
-
+        self.results['dns'] = []
         if out:
-            self.results['dns'] = []
             for line in out.splitlines():
 
                 regex = re.compile('^\#')
@@ -695,18 +700,24 @@ class RhelFacts(AbstractFacts):
                     continue
 
                 data = line.split()
-                self.results['dns'].append(data[1])
+                for ns in data[1:]:
+                    self.results['dns'].append(ns)
+
+    def get_default_gateway(self, current_if):
+        out = self.ssh.run_command('ip route | grep default')
+
+        if out:
+            lines = out.splitlines()
+            for line in lines:
+                words = line.split()
+                if len(words) > 1 and words[0] == 'default':
+                    if words[words.index("dev") + 1] == current_if['device']:
+                        return words[2]
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
-
-        self.facts["system_summary"]["processor_count"] = self.results['processor_count']
-        self.facts["system_summary"]["cores"] = self.results['processor_cores']
-        self.facts["system_summary"]["cpu"] = self.results['processor']
-
-        self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
-        self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+        self.facts["system_summary"]["family"] = self.results['family']
 
         self.facts["system_summary"]["kernel"] = self.results['kernel']
         self.facts["system_summary"]["architecture"] = self.results['architecture']
@@ -715,6 +726,24 @@ class RhelFacts(AbstractFacts):
         # self.facts["system_summary"]["lpar_info"] = self.results['lpar_info']
         self.facts["system_summary"]["vendor"] = self.results['product_name']
 
+        self.make_cpu_summary()
+        self.make_memory_summary()
+        self.make_disk_summary()
+        self.make_network_summary()
+
+    def make_cpu_summary(self):
+        self.facts["system_summary"]["processor_count"] = self.results['processor_count']
+        self.facts["system_summary"]["cores"] = self.results['processor_cores']
+        self.facts["system_summary"]["cpu"] = self.results['processor']
+
+    def make_memory_summary(self):
+        self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+        self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+
+    def make_disk_summary(self):
         self.facts["system_summary"]["disk_info"] = self.results['partitions']
 
-        self.facts['system_summary']['network_info'] = self.results['interfaces']
+    def make_network_summary(self):
+        self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
+        self.facts['system_summary']['network_info']['dns'] = self.results['dns']
+        self.facts['system_summary']['network_info']['script'] = {}
