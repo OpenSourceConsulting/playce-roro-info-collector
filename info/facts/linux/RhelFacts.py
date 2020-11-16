@@ -73,17 +73,14 @@ class RhelFacts(AbstractFacts):
         self.results['hostname'] = out.replace('\n', '')
 
     def get_cpu_facts(self):
-        self.results['processor'] = []
+        lscpu = self.ssh.run_command("lscpu")
 
-        out = self.ssh.run_command("grep 'physical id' /proc/cpuinfo | wc -l")
-        self.results['processor_count'] = int(out)
+        self.results['cpu'] = {}
+        if lscpu:
+            for line in lscpu.splitlines():
+                key, value = line.split(":")
+                self.results['cpu'][key] = value.lstrip()
 
-        out = self.ssh.run_command("grep -c processor /proc/cpuinfo")
-        self.results['processor_cores'] = int(out)
-
-        out = self.ssh.run_command("grep 'model name' /proc/cpuinfo | tail -1")
-        data = out.split(':')[1].strip().replace('\n', '')
-        self.results['processor'] = data
 
     def get_memory_facts(self):
         self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
@@ -741,9 +738,9 @@ class RhelFacts(AbstractFacts):
         self.make_network_summary()
 
     def make_cpu_summary(self):
-        self.facts["system_summary"]["processor_count"] = self.results['processor_count']
-        self.facts["system_summary"]["cores"] = self.results['processor_cores']
-        self.facts["system_summary"]["cpu"] = self.results['processor']
+        self.facts["system_summary"]["processor_count"] = self.results['cpu']['CPU(s)']
+        self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
+        self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
 
     def make_memory_summary(self):
         self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
