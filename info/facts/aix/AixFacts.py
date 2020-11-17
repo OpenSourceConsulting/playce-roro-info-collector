@@ -29,40 +29,41 @@ class AixFacts(AbstractFacts):
 
     def execute(self):
         try:
-            self.get_distribution_AIX()
-            self.get_hostname()
-            self.get_cpu_facts()
-            self.get_memory_facts()
-            self.get_kernel()
-            self.get_bitmode()
-            self.get_dmi_facts()
-            self.get_interfaces_info()
-            self.get_vgs_facts()
-            self.get_users()
-            self.get_groups()
-            self.get_password_of_users()
-            self.get_ulimits()
-            self.get_crontabs()
-            # self.get_default_interfaces()
-            self.get_df()
-            self.get_extra_partitions()
-            self.get_ps_lists()
-            self.get_kernel_parameters()
-            self.get_timezone()
-            self.get_route_table()
-            # self.get_firewall()
-            self.get_listen_port()
-            self.get_locale()
-            self.get_env()
-            self.get_fs_info()
-            self.get_lvm_info()
-            self.get_daemon_list()
-            self.get_dns()
+            # self.get_distribution_AIX()
+            # self.get_hostname()
+            # self.get_cpu_facts()
+            # self.get_memory_facts()
+            # self.get_kernel()
+            # self.get_bitmode()
+            # self.get_dmi_facts()
+            # self.get_interfaces_info()
+            # self.get_vgs_facts()
+            # self.get_users()
+            # self.get_groups()
+            # self.get_password_of_users()
+            # self.get_ulimits()
+            # self.get_crontabs()
+            # # self.get_default_interfaces()
+            # self.get_df()
+            # self.get_extra_partitions()
+            # self.get_ps_lists()
+            # self.get_kernel_parameters()
+            # self.get_timezone()
+            # self.get_route_table()
+            # # self.get_firewall()
+            # self.get_listen_port()
+            # self.get_locale()
+            # self.get_env()
+            # self.get_fs_info()
+            # self.get_lvm_info()
+            # self.get_daemon_list()
+            # self.get_dns()
+            self.get_security_info()
         except Exception as err:
             print str(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts["results"] = self.results
             return self.results
 
@@ -458,6 +459,7 @@ class AixFacts(AbstractFacts):
                     current_if = self.parse_interface_line(words)
                     interfaces[current_if['device']] = current_if
                     current_if['gateway'] = self.get_default_gateway(current_if)
+                    # current_if['script'] = self.get_ifcfg_script(current_if)
                 elif words[0].startswith('options='):
                     self.parse_options_line(words, current_if, ips)
                 elif words[0] == 'nd6':
@@ -713,7 +715,49 @@ class AixFacts(AbstractFacts):
                 self.results['daemon_list'].append(daemon)
 
     def get_security_info(self):
-        None
+        self.results['security'] = {}
+
+        # Login policies
+        out = self.ssh.run_command("cat /etc/security/login.cfg")
+        if out:
+            login = {}
+            self.results['security']['login'] = login
+            for line in out.splitlines():
+
+                regex = re.compile('^\*')
+                if regex.match(line) or line in ['', '\n']:
+                    continue
+
+                if ':' in line:
+                    user = line.replace(":", "")
+                    current_if = {}
+                    login[user] = current_if
+                else:
+                    key, value = line.split("=")
+                    current_if.update({
+                        key: value
+                    })
+
+        #Password policies
+        out = self.ssh.run_command("cat /etc/security/user")
+        if out:
+            password = {}
+            self.results['security']['password'] = password
+            for line in out.splitlines():
+
+                regex = re.compile('^\*')
+                if regex.match(line) or line in ['', '\n']:
+                    continue
+
+                if ':' in line:
+                    user = line.replace(":", "")
+                    current_if = {}
+                    password[user] = current_if
+                else:
+                    key, value = line.split("=")
+                    current_if.update({
+                        key: value
+                    })
 
     def get_firewall(self):
         None
@@ -775,4 +819,3 @@ class AixFacts(AbstractFacts):
     def make_network_summary(self):
         self.facts['system_summary']['network_info'] = dict(interfaces=self.results['interfaces'])
         self.facts['system_summary']['network_info']['dns'] = self.results['dns']
-        self.facts['system_summary']['network_info']['script'] = {}
