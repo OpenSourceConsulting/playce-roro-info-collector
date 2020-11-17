@@ -52,6 +52,7 @@ class RhelFacts(AbstractFacts):
             self.get_route_table()
             self.get_firewall()
             self.get_listen_port()
+
             self.get_locale()
             self.get_env()
             self.get_fs_info()
@@ -663,17 +664,36 @@ class RhelFacts(AbstractFacts):
                 )
 
     def get_daemon_list(self):
-        out = self.ssh.run_command("systemctl list-unit-files")
 
-        if out:
-          self.results['daemon_list'] = {}
-          for line in out.splitlines():
-            if 'STATE' in line:
-                continue
+        version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
+        version = float(version.replace('\"',''))
+        if version >= 7:
+            cmd = "systemctl list-unit-files"
+            out = self.ssh.run_command(cmd)
 
-            data = line.split()
-            if len(data) > 1:
-              self.results['daemon_list'][data[0]] = data[1]
+            if out:
+                self.results['daemon_list'] = {}
+                for line in out.splitlines():
+                    if 'STATE' in line:
+                        continue
+
+                    data = line.split()
+                    if len(data) > 1:
+                        self.results['daemon_list'][data[0]] = data[1]
+        elif version < 7:
+            cmd = "service --status-all"
+            out = self.ssh.run_command(cmd)
+            if out:
+                self.results['daemon_list'] = {}
+                for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
+
+                    if '+' in m.group(1):
+                        self.results['daemon_list'][m.group(2)] = "running"
+                    elif '-' in m.group(1):
+                        self.results['daemon_list'][m.group(2)] = "stop"
+                    else:
+                        self.results['daemon_list'][m.group(2)] = "unknown"
+
 
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")

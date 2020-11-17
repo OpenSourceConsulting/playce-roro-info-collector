@@ -55,7 +55,7 @@ class DebianFacts(AbstractFacts):
 
             self.get_locale()
             self.get_env()
-            self.get_fs_info()
+            self.get_fstab_info()
             self.get_lvm_info()
             self.get_daemon_list()
             self.get_security_info()
@@ -997,18 +997,6 @@ class DebianFacts(AbstractFacts):
                 )
 
     def get_daemon_list(self):
-        # out = self.ssh.run_command("service --status-all")
-        #
-        # if out:
-        #     self.results['daemon_list'] = {}
-        #     for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
-        #
-        #         if '+' in m.group(1):
-        #             self.results['daemon_list'][m.group(2)] = "running"
-        #         elif '-' in m.group(1):
-        #             self.results['daemon_list'][m.group(2)] = "stop"
-        #         else:
-        #             self.results['daemon_list'][m.group(2)] = "unknown"
         out = self.ssh.run_command("systemctl list-unit-files")
 
         if out:
