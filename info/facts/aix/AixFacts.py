@@ -25,7 +25,7 @@ class AixFacts(AbstractFacts):
 
     def __init__(self, params):
         AbstractFacts.__init__(self, params, isSudo=False)
-        self.results = {}
+        self.results = { "family" : "aix"}
 
     def execute(self):
         try:
@@ -790,7 +790,7 @@ class AixFacts(AbstractFacts):
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
-        # self.facts["system_summary"]["family"] = self.results['family']
+        self.facts["system_summary"]["family"] = self.results['family']
 
         self.facts["system_summary"]["kernel"] = self.results['kernel']
         self.facts["system_summary"]["architecture"] = self.results['architecture']

@@ -61,7 +61,7 @@ class RhelFacts(AbstractFacts):
             self.get_daemon_list()
             self.get_security_info()
             self.get_dns()
-            self.get_bonding()
+            # self.get_bonding()
         except Exception as err:
             print str(err)
 

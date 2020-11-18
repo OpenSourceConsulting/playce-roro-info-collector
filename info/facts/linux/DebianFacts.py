@@ -25,7 +25,7 @@ class DebianFacts(AbstractFacts):
         AbstractFacts.__init__(self, params)
         self.results = {
             'distribution_version': release,
-            'family': "Redhat"
+            'family': "Debian"
         }
 
     def execute(self):
