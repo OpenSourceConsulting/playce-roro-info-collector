@@ -5,7 +5,7 @@ import argparse
 
 from facts.linux.LinuxFactorGenerator import *
 from facts.aix.AixFacts import *
-from facts.sample.windowsFacts import *
+from info.facts.sample.facts.windowsFacts import *
 
 def get_args():
   '''This function parses and return arguments passed in'''

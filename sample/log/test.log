@@ -1,0 +1,11 @@
+ERROR:root:error
+ERROR:root:error
+ERROR:root:error
+ERROR:root:error
+ERROR:root:error
+DEBUG:root:debug
+[DEBUG|logSample.py:18] 2020-11-07 00:37:41,964 > debug
+DEBUG:root:debug
+[DEBUG|logSample.py:18]2020-11-07 00:42:31,742 > debug
+DEBUG:root:debug
+[DEBUG|logSample.py:18][2020-11-07 00:58:15,901] debug
