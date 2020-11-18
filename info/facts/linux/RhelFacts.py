@@ -55,12 +55,13 @@ class RhelFacts(AbstractFacts):
 
             self.get_locale()
             self.get_env()
-            self.get_fs_info()
+            # self.get_fs_info()
             self.get_fstab_info()
             self.get_lvm_info()
             self.get_daemon_list()
             self.get_security_info()
             self.get_dns()
+            self.get_bonding()
         except Exception as err:
             print str(err)
 
@@ -740,6 +741,17 @@ class RhelFacts(AbstractFacts):
 
         if file:
             return self.ssh.run_command("cat %s" % file)
+
+    def get_bonding(self):
+        rootPath = '/etc/sysconfig/network-scripts'
+        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d '-'' % rootPath)
+
+        if list:
+            self.results['bonding'] = {}
+            for bond in list.splitlines():
+                cfg = self.ssh.run_command('cat %s/ifcfg-%s' % rootPath, bond)
+                self.results['bonding'][bond] = cfg
+                # ToDo: Detail /proc/net/bonding/{bond}
 
 
     def make_system_summary(self):

@@ -1062,6 +1062,18 @@ class DebianFacts(AbstractFacts):
 
         if file:
             return self.ssh.run_command("cat %s" % file)
+
+    def get_bonding(self):
+        rootPath = '/etc/sysconfig/network-scripts'
+        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d '-'' % rootPath)
+
+        if list:
+            self.results['bonding'] = {}
+            for bond in list.splitlines():
+                cfg = self.ssh.run_command('cat %s/ifcfg-%s' % rootPath, bond)
+                self.results['bonding'][bond] = cfg
+                # ToDo: Detail /proc/net/bonding/{bond}
+
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']

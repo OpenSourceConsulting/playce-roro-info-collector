@@ -48,9 +48,7 @@ class AixFacts(AbstractFacts):
             self.get_extra_partitions()
             self.get_ps_lists()
             self.get_kernel_parameters()
-            self.get_timezone()
             self.get_route_table()
-            # self.get_firewall()
             self.get_listen_port()
             self.get_locale()
             self.get_env()
@@ -59,6 +57,8 @@ class AixFacts(AbstractFacts):
             self.get_daemon_list()
             self.get_dns()
             self.get_security_info()
+            self.get_timezone()
+            self.get_firewall()
         except Exception as err:
             print str(err)
 
