@@ -20,10 +20,11 @@
 * -P : port
 * -u : username
 * -p : password
-* -T : target os type (Current only linux)
+* -T : target os type (linux, unix(only aix))
+* -L : loggin path
 
 For example.
 ```shell script
-linux_info_collector -H 172.143.0.2 -P 22 -u admin -p admin -T linux
+linux_info_collector -H 172.143.0.2 -P 22 -u admin -p admin -T linux -L /roro/assessments/server/
 ```
 

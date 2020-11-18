@@ -109,6 +109,6 @@ class AbstractFacts(ABC):
 
   def get_results(self):
     self.logger.debug("get Result")
-    r = json.dumps(self.facts, indent=2)
-    print r
-    return r
+    # r = json.dumps(self.facts, indent=2)
+    print self.facts
+    return self.facts
