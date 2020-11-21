@@ -30,43 +30,43 @@ class RhelFacts(AbstractFacts):
 
     def execute(self):
         try:
-            self.get_hostname()
-            self.get_cpu_facts()
-            self.get_memory_facts()
-            self.get_kernel()
-            self.get_bitmode()
-            self.get_dmi_facts()
-            self.get_interfaces_info()
-            self.get_vgs_facts()
-            self.get_users()
-            self.get_groups()
-            self.get_password_of_users()
-            self.get_ulimits()
-            self.get_crontabs()
-            # self.get_default_interfaces()
-            self.get_df()
-            # self.get_extra_partitions()
-            self.get_ps_lists()
-            self.get_kernel_parameters()
-            self.get_timezone()
-            self.get_route_table()
-            self.get_firewall()
+            # self.get_hostname()
+            # self.get_cpu_facts()
+            # self.get_memory_facts()
+            # self.get_kernel()
+            # self.get_bitmode()
+            # self.get_dmi_facts()
+            # self.get_interfaces_info()
+            # self.get_vgs_facts()
+            # self.get_users()
+            # self.get_groups()
+            # self.get_password_of_users()
+            # self.get_ulimits()
+            # self.get_crontabs()
+            # # self.get_default_interfaces()
+            # self.get_df()
+            # # self.get_extra_partitions()
+            # self.get_ps_lists()
+            # self.get_kernel_parameters()
+            # self.get_timezone()
+            # self.get_route_table()
+            # self.get_firewall()
             self.get_listen_port()
-
-            self.get_locale()
-            self.get_env()
-            # self.get_fs_info()
-            self.get_fstab_info()
-            self.get_lvm_info()
-            self.get_daemon_list()
-            self.get_security_info()
-            self.get_dns()
+            #
+            # self.get_locale()
+            # self.get_env()
+            # # self.get_fs_info()
+            # self.get_fstab_info()
+            # self.get_lvm_info()
+            # self.get_daemon_list()
+            # self.get_security_info()
+            # self.get_dns()
             # self.get_bonding()
         except Exception as err:
             print str(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -474,38 +474,34 @@ class RhelFacts(AbstractFacts):
         #     self.results['route_table']['list'].append(info)
 
     def get_listen_port(self):
-        out = self.ssh.run_command("ss -nutlp | grep LISTEN")
+        out = self.ssh.run_command("netstat -nap --ip | tail -n+3")
 
         if out:
-            self.results['listen_port_list'] = {}
+            self.results['listen_port_list'] = { 'LISTEN' : [], 'ESTABLISHED' : []}
 
             for line in out.splitlines():
                 data = line.split()
 
-                if not self.results['listen_port_list'].get(data[0]):
-                    self.results['listen_port_list'][data[0]] = dict()
+                local_addr, l_port = data[3].rsplit(':', 1)
+                frg_addr, f_port = data[4].rsplit(':', 1)
+                pid, p_name = data[6].rsplit('/', 1)
 
-                local_addr, l_port = data[4].rsplit(':', 1)
-                frg_addr, f_port = data[5].rsplit(':', 1)
+                if local_addr == '127.0.0.1' and frg_addr == '127.0.0.1':
+                    continue
 
-                regex = re.compile(r'users:\(\(|\)\)|pid=|fd=|\"', re.IGNORECASE)
-                userInfos = regex.sub("", data[6])
+                port_info = {
+                    "protocol": data[0],
+                    "laddr": local_addr,
+                    "lport": l_port,
+                    "faadr": frg_addr,
+                    "fPort": f_port,
+                    "pid": pid,
+                    "pname": p_name,
+                }
 
-                for info in re.split(r"\),\(", userInfos):
-                    user, pid, fd = info.split(",")
+                if data[5] in [u'LISTEN', u'ESTABLISHED']:
+                    self.results['listen_port_list'][data[5]].append(port_info)
 
-                    port_info = {
-                        "localAddress": local_addr,
-                        "foreignAddress": frg_addr,
-                        "fPort": f_port,
-                        "state": data[1],
-                        "user": user,
-                        "pid": pid,
-                        "fd": fd
-                    }
-
-                    self.results['listen_port_list'][data[0]][l_port] = []
-                    self.results['listen_port_list'][data[0]][l_port].append(port_info)
 
     def get_firewall(self):
         commands = [

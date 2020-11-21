@@ -755,43 +755,33 @@ class DebianFacts(AbstractFacts):
                 })
 
     def get_listen_port(self):
-        """
-    Active Internet connections (only servers)
-    Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
-    tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -
-    tcp6       0      0 :::22                   :::*                    LISTEN      -
-    udp        0      0 0.0.0.0:68              0.0.0.0:*
-    :return:
-    """
-        out = self.ssh.run_command("netstat -tunlp")
+        out = self.ssh.run_command("netstat -nap --ip | tail -n+3")
 
         if out:
-            self.results['listen_port_list'] = {}
+            self.results['listen_port_list'] = { 'LISTEN' : [], 'ESTABLISHED' : []}
 
             for line in out.splitlines():
-                if '(only servers)' in line:
-                    continue
-
-                if "Proto" in line:
-                    continue
-
                 data = line.split()
 
-                if not self.results['listen_port_list'].get(data[0]):
-                    self.results['listen_port_list'][data[0]] = {}
+                local_addr, l_port = data[3].rsplit(':', 1)
+                frg_addr, f_port = data[4].rsplit(':', 1)
+                pid, p_name = data[6].rsplit('/', 1)
 
-                if 'LISTEN' in line:
-                    self.results['listen_port_list'][data[0]][data[6]] = {
-                        "localAddress": data[3],
-                        "foreignAddress": data[4],
-                        "state": data[5],
-                    }
-                else:
-                    self.results['listen_port_list'][data[0]][data[5]] = {
-                        "localAddress": data[3],
-                        "foreignAddress": data[4],
-                        "state": '',
-                    }
+                if local_addr == '127.0.0.1' and frg_addr == '127.0.0.1':
+                    continue
+
+                port_info = {
+                    "protocol": data[0],
+                    "laddr": local_addr,
+                    "lport": l_port,
+                    "faadr": frg_addr,
+                    "fPort": f_port,
+                    "pid": pid,
+                    "pname": p_name,
+                }
+
+                if data[5] in [u'LISTEN', u'ESTABLISHED']:
+                    self.results['listen_port_list'][data[5]].append(port_info)
 
     def get_firewall(self):
         """
