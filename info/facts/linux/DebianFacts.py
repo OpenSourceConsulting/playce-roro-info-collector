@@ -763,24 +763,24 @@ class DebianFacts(AbstractFacts):
             for line in out.splitlines():
                 data = line.split()
 
-                local_addr, l_port = data[3].rsplit(':', 1)
-                frg_addr, f_port = data[4].rsplit(':', 1)
-                pid, p_name = data[6].rsplit('/', 1)
-
-                if local_addr == '127.0.0.1' and frg_addr == '127.0.0.1':
-                    continue
-
-                port_info = {
-                    "protocol": data[0],
-                    "laddr": local_addr,
-                    "lport": l_port,
-                    "faadr": frg_addr,
-                    "fPort": f_port,
-                    "pid": pid,
-                    "pname": p_name,
-                }
-
                 if data[5] in [u'LISTEN', u'ESTABLISHED']:
+                    local_addr, l_port = data[3].rsplit(':', 1)
+                    frg_addr, f_port = data[4].rsplit(':', 1)
+                    pid, p_name = data[6].rsplit('/', 1)
+
+                    if local_addr == '127.0.0.1' and frg_addr == '127.0.0.1':
+                        continue
+
+                    port_info = {
+                        "protocol": data[0],
+                        "laddr": local_addr,
+                        "lport": l_port,
+                        "faadr": frg_addr,
+                        "fPort": f_port,
+                        "pid": pid,
+                        "pname": p_name,
+                    }
+
                     self.results['listen_port_list'][data[5]].append(port_info)
 
     def get_firewall(self):
