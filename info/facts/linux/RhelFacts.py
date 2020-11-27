@@ -478,33 +478,73 @@ class RhelFacts(AbstractFacts):
         #     self.results['route_table']['list'].append(info)
 
     def get_listen_port(self):
-        out = self.ssh.run_command("netstat -nap --ip | tail -n+3")
-
+        self.results['port_list'] = {
+            'listen': [],
+            'established': {}
+        }
+        out = self.ssh.run_command("netstat -nap --ip | grep LISTEN")
         if out:
-            self.results['listen_port_list'] = { 'LISTEN' : [], 'ESTABLISHED' : []}
-
+            listen_port = []
+            self.results['port_list']['listen'] = listen_port
             for line in out.splitlines():
                 data = line.split()
 
-                if data[5] in [u'LISTEN', u'ESTABLISHED']:
-                    local_addr, l_port = data[3].rsplit(':', 1)
-                    frg_addr, f_port = data[4].rsplit(':', 1)
-                    pid, p_name = data[6].rsplit('/', 1)
+                l_addr, l_port = data[3].rsplit(':', 1)
+                f_addr, f_port = data[4].rsplit(':', 1)
+                pid, p_name = data[6].rsplit('/', 1)
 
-                    if local_addr == '127.0.0.1' and frg_addr == '127.0.0.1':
-                        continue
+                port_info = {
+                    "protocol": data[0],
+                    "bind_addr": l_addr,
+                    "port": l_port,
+                    "pid": pid,
+                    "name": p_name,
+                }
+                listen_port.append(port_info)
 
-                    port_info = {
+        out = self.ssh.run_command("netstat -nap --ip | tail -n+3 | grep ESTABLISHED")
+
+        if out:
+            any_to_local = []
+            local_to_any = []
+            estab_port = {
+                'any_to_local': any_to_local,
+                'local_to_any': local_to_any
+            }
+            self.results['port_list']['established'] = estab_port
+            for line in out.splitlines():
+
+                data = line.split()
+
+                l_addr, l_port = data[3].rsplit(':', 1)
+                f_addr, f_port = data[4].rsplit(':', 1)
+                pid, p_name = data[6].rsplit('/', 1)
+
+                if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
+                    continue
+
+                lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
+
+                if lport_info:
+                    any_to_local.append({
                         "protocol": data[0],
-                        "laddr": local_addr,
+                        "faddr": f_addr,
+                        "fport": f_port,
+                        "laddr": l_addr,
                         "lport": l_port,
-                        "faadr": frg_addr,
-                        "fPort": f_port,
                         "pid": pid,
-                        "pname": p_name,
-                    }
-
-                    self.results['listen_port_list'][data[5]].append(port_info)
+                        "name": p_name,
+                    })
+                else:
+                    local_to_any.append({
+                        "protocol": data[0],
+                        "faddr": f_addr,
+                        "fport": f_port,
+                        "laddr": l_addr,
+                        "lport": l_port,
+                        "pid": pid,
+                        "name": p_name,
+                    })
 
 
     def get_firewall(self):
