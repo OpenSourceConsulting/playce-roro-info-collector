@@ -546,44 +546,88 @@ class AixFacts(AbstractFacts):
                 self.results['route_table'].append(info)
 
     def get_listen_port(self):
-        ps_list = self.ssh.run_command("/usr/bin/netstat -Aan | grep LISTEN")
 
-        if ps_list:
-            self.results['listen_port_list'] = {}
+        self.results['port_list'] = {
+            'listen': [],
+            'established': {}
+        }
 
-            for line in ps_list.splitlines():
+        out = self.ssh.run_command("/usr/bin/netstat -Aan | grep LISTEN")
+        if out:
+            listen_port = []
+            self.results['port_list']['listen'] = listen_port
+            for line in out.splitlines():
+                data = line.split()
+
+                l_addr, l_port = data[4].rsplit('.', 1)
+                f_addr, f_port = data[5].rsplit('.', 1)
+
+                port_info = {
+                    "protocol": data[1],
+                    "bind_addr": l_addr,
+                    "port": l_port,
+                }
+
+                user_info = self.ssh.run_command(("/usr/sbin/rmsock %s tcpcb") % data[0])
+                usage_info = re.split(r'\s+proccess\s', user_info)
+
+                if len(usage_info) > 1:
+                    pid, pname = usage_info[1].split()
+                    pname = re.sub('[\(\)\.]', '', str(pname))
+                    port_info['pid'] = pid
+                    port_info['name'] = pname
+                else:
+                    port_info['pid'] = "-"
+                    port_info['name'] = "-"
+
+                listen_port.append(port_info)
+
+        out = self.ssh.run_command("/usr/bin/netstat -Aan | grep ESTABLISHED")
+        if out:
+            any_to_local = []
+            local_to_any = []
+            estab_port = {
+                'any_to_local': any_to_local,
+                'local_to_any': local_to_any
+            }
+            self.results['port_list']['established'] = estab_port
+            for line in out.splitlines():
 
                 data = line.split()
 
-                if not self.results['listen_port_list'].get(data[1]):
-                    self.results['listen_port_list'][data[1]] = dict()
+                l_addr, l_port = data[4].rsplit('.', 1)
+                f_addr, f_port = data[5].rsplit('.', 1)
 
-                local_addr, l_port = data[4].rsplit('.', 1)
-                frg_addr, f_port = data[5].rsplit('.', 1)
+                if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
+                    continue
 
-                command = ("/usr/sbin/rmsock %s tcpcb") % data[0]
-                user_info = self.ssh.run_command(command)
+                port_info = {
+                    "protocol": data[1],
+                    "faddr": f_addr,
+                    "fport": f_port,
+                    "laddr": l_addr,
+                    "lport": l_port,
+                }
+
+                user_info = self.ssh.run_command(("/usr/sbin/rmsock %s tcpcb") % data[0])
 
                 usage_info = re.split(r'\s+proccess\s', user_info)
 
                 if len(usage_info) > 1:
-                    pid, user = usage_info[1].split()
-                    user = re.sub('[\(\)\.]', '', str(user))
-
-                    port_info = {
-                        "localAddress": local_addr,
-                        "foreignAddress": frg_addr,
-                        "fPort": f_port,
-                        "state": data[6],
-                        "user": user,
-                        "pid": pid,
-                        "fd": data[0]
-                    }
-                    self.results['listen_port_list'][data[1]][l_port] = []
-                    self.results['listen_port_list'][data[1]][l_port].append(port_info)
+                    pid, pname = usage_info[1].split()
+                    pname = re.sub('[\(\)\.]', '', str(pname))
+                    port_info['pid'] = pid
+                    port_info['name'] = pname
                 else:
-                    None
-                    # print "get_listen_port, Error, %s file descriptor parsing" % data[0]
+                    port_info['pid'] = "-"
+                    port_info['name'] = "-"
+
+                if next((lport for lport in listen_port if lport['port'] == l_port), None):
+                    any_to_local.append(port_info)
+                else:
+                    local_to_any.append(port_info)
+
+
 
     def get_locale(self):
         locale = self.ssh.run_command("locale")
