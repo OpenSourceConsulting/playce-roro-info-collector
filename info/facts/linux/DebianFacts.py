@@ -67,6 +67,7 @@ class DebianFacts(AbstractFacts):
             self.facts['results'] = self.results
             return self.results
 
+
     def get_distribution_Linux(self):
         """
        Static hostname: roro-ubuntu-1604
@@ -88,8 +89,10 @@ class DebianFacts(AbstractFacts):
         return self.results['distribution_version'];
 
     def get_hostname(self):
+        self.logger.debug("start get_hostname")
         out = self.ssh.run_command("uname -n")
         self.results['hostname'] = out.replace('\n', '')
+        self.logger.debug("end get_hostname")
 
     def get_cpu_facts(self):
         lscpu = self.ssh.run_command("lscpu")
@@ -292,7 +295,8 @@ class DebianFacts(AbstractFacts):
             self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
-                if user[1] != '*' and user[1] != '!':
+                # !! : no password, * : block
+                if user[1] != '*' and user[1] != '!!':
                     self.results['shadow'][user[0]] = user[1]
 
     def get_ulimits(self):

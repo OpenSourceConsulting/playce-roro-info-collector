@@ -28,7 +28,8 @@ class LinuxFactorGenerator:
 
         if len(out) > 1:
             data = out.split("=")
-            return data[1].strip()
+            result = re.sub('\n|"', '', data[1])
+            return result
 
         return 'None'
 

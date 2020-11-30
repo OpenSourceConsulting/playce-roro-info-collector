@@ -198,7 +198,8 @@ class RhelFacts(AbstractFacts):
             self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
-                if user[1] != '*' and user[1] != '!':
+                # !! : no password, * : block
+                if user[1] != '*' and user[1] != '!!':
                     self.results['shadow'][user[0]] = user[1]
 
     def get_ulimits(self):
@@ -601,7 +602,7 @@ class RhelFacts(AbstractFacts):
 
           for line in locale.splitlines():
             key, value = line.split("=")
-            self.results['locale'][key]=value
+            self.results['locale'][key] = re.sub('"', '', value)
 
     def get_env(self):
         env = self.ssh.run_command("env")

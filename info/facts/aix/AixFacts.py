@@ -1,9 +1,9 @@
 #!/usr/bin/env python2.7
-
+import functools
 import re
 import socket
 import struct
-
+from functools import wraps
 from info.facts.AbstractFacts import AbstractFacts
 
 try:
@@ -68,10 +68,12 @@ class AixFacts(AbstractFacts):
             return self.results
 
     def get_distribution_AIX(self):
+        self.logger.debug("start get_distribution_AIX")
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
+        self.logger.debug("end get_distribution_AIX")
 
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
@@ -522,7 +524,7 @@ class AixFacts(AbstractFacts):
         out = self.ssh.run_command(
             "/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
-            self.results['timezone'] = out
+            self.results['timezone'] = re.sub(r'\n', '', out)
 
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
@@ -637,7 +639,7 @@ class AixFacts(AbstractFacts):
 
             for line in locale.splitlines():
                 key, value = line.split("=")
-                self.results['locale'][key] = value
+                self.results['locale'][key] = re.sub('"', '', value)
 
     def get_env(self):
         env = self.ssh.run_command("env")
@@ -712,8 +714,9 @@ class AixFacts(AbstractFacts):
                     self.results['file_system'][fs] = {}
 
                 if "=" in line:
-                    key, value = line.split("=")
-                    self.results['file_system'][fs][key] = value
+                    line = re.sub(r"[\t|\"]", '', line)
+                    key, value = line.rsplit("=")
+                    self.results['file_system'][fs][key.strip()] = value.strip()
 
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
