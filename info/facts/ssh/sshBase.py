@@ -2,6 +2,7 @@
 import socket
 import sys
 import os
+from info.facts.log.LogManager import LogManager
 from error import *
 
 try:
@@ -89,10 +90,13 @@ class SshBase(object):
       all_err = ''
 
       stdout = stdout.readlines()
+      stderr = stderr.readlines()
 
       for line in stdout:
         all_out = all_out + line
 
+      for line in stderr:
+        all_err = all_err + line
       '''
       while not stdout.channel.exit_status_ready():
           # Print stdout data when available
@@ -111,11 +115,11 @@ class SshBase(object):
                   #all_err += stderr.channel.recv(1024)
       '''
     except ShellError as e:
-      print("Failed %s, command : [%s]" % str(e), command)
+      LogManager.logger.error("Failed %s, command : [%s]" % str(e), command)
       sys.exit(3)
 
     finally:
-      return all_out
+      return all_out, all_err
 
   def run_dump_command(self, params):
     try:

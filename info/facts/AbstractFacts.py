@@ -1,7 +1,7 @@
 import simplejson as json
 import abc
 
-from info.facts.log.LogManager import getLogger
+from info.facts.log.LogManager import LogManager
 from info.facts.ssh.sshBase import *
 from functools import wraps
 
@@ -17,19 +17,7 @@ class AbstractFacts(ABC):
         self.ssh = SshBase(isSudo=isSudo)
         self.ssh.connect(params)
         self.facts = {"system_summary": dict()};
-        self.logger = getLogger(params.get('logDir'))
-
-    def logging(self):
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                # set name_override to func.__name__
-                self.logger.debug("Test")
-                return func(*args, **kwargs)
-
-            return wrapper
-
-        return decorator
+        LogManager.set_logging(params.get('logDir'))
 
     @abc.abstractmethod
     def get_hostname(self): pass
@@ -118,7 +106,7 @@ class AbstractFacts(ABC):
     @abc.abstractmethod
     def get_dns(self): pass
 
+    @LogManager.logging
     def get_results(self):
-        self.logger.debug("get Result")
         r = json.dumps(self.facts, indent=2)
         print r
