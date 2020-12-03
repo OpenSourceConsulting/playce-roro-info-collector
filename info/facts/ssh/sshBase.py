@@ -119,7 +119,7 @@ class SshBase(object):
       sys.exit(3)
 
     finally:
-      return all_out, all_err
+      return all_out
 
   def run_dump_command(self, params):
     try:

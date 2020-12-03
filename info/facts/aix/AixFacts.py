@@ -68,11 +68,10 @@ class AixFacts(AbstractFacts):
 
     @LogManager.logging
     def get_distribution_AIX(self):
-        out, err = self.ssh.run_command("/usr/bin/oslevel")
+        out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
-        return err
 
     @LogManager.logging
     def get_hostname(self):
