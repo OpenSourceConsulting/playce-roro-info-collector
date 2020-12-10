@@ -475,6 +475,8 @@ class AixFacts(AbstractFacts):
                     current_if = self.parse_interface_line(words)
                     interfaces[current_if['device']] = current_if
                     current_if['gateway'] = self.get_default_gateway(current_if)
+                    current_if['macaddress'] = self.get_mac_address(current_if)
+                    current_if['type'] = self.get_interface_type(current_if)
                     # current_if['script'] = self.get_ifcfg_script(current_if)
                 elif words[0].startswith('options='):
                     self.parse_options_line(words, current_if, ips)
@@ -496,6 +498,7 @@ class AixFacts(AbstractFacts):
                     self.parse_unknown_line(words, current_if, ips)
 
         self.results['interfaces'] = interfaces
+
     @LogManager.logging
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
@@ -804,7 +807,7 @@ class AixFacts(AbstractFacts):
                 else:
                     key, value = line.split("=")
                     current_if.update({
-                        key: value
+                        re.sub('\t', '', key): value.lstrip()
                     })
 
         #Password policies
@@ -825,7 +828,7 @@ class AixFacts(AbstractFacts):
                 else:
                     key, value = line.split("=")
                     current_if.update({
-                        key: value
+                        re.sub('\t', '', key): value.lstrip()
                     })
 
     @LogManager.logging
@@ -857,6 +860,20 @@ class AixFacts(AbstractFacts):
                 if len(words) > 1 and words[0] == 'default':
                     if words[5] == current_if['device']:
                         return words[1]
+
+    def get_mac_address(self, current_if):
+        out = self.ssh.run_command('entstat -d '+current_if['device']+' | egrep Hardware')
+
+        if out:
+            data = out.split(":", 1)
+            return data[1].strip().replace(r'\n', '')
+
+    def get_interface_type(self, current_if):
+        out = self.ssh.run_command('entstat -d '+current_if['device']+' | egrep Device')
+
+        if out:
+            data = out.split(":", 1)
+            return data[1].strip().replace(r'\n', '')
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']
