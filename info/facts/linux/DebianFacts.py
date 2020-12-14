@@ -61,7 +61,7 @@ class DebianFacts(AbstractFacts):
             self.get_daemon_list()
             self.get_security_info()
         except Exception as err:
-            print str(err)
+            LogManager.logger.error(err)
 
         finally:
             self.make_system_summary()

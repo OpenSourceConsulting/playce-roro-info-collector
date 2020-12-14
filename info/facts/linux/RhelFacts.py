@@ -64,7 +64,7 @@ class RhelFacts(AbstractFacts):
             self.get_dns()
             self.get_bonding()
         except Exception as err:
-            print str(err)
+            LogManager.logger.error(err)
 
         finally:
             self.make_system_summary()
@@ -437,7 +437,7 @@ class RhelFacts(AbstractFacts):
         self.results['product_serial'] = out.replace('\n', '')
 
         out = self.ssh.run_command("dmidecode -s processor-manufacturer")
-        self.results['product_name'] = ''.join(sorted(set(out), key=out.index))
+        self.results['product_name'] = ''.join(sorted(set(out.replace('\n', '')), key=out.index))
 
     @LogManager.logging
     def get_timezone(self):

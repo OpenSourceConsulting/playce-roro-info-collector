@@ -59,7 +59,7 @@ class AixFacts(AbstractFacts):
             self.get_timezone()
             self.get_firewall()
         except Exception as err:
-            print str(err)
+            LogManager.logger.error(err)
 
         finally:
             self.make_system_summary()
