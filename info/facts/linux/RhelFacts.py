@@ -62,12 +62,12 @@ class RhelFacts(AbstractFacts):
             self.get_daemon_list()
             self.get_security_info()
             self.get_dns()
-            # self.get_bonding()
+            self.get_bonding()
         except Exception as err:
             print str(err)
 
         finally:
-            # self.make_system_summary()
+            self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -296,8 +296,8 @@ class RhelFacts(AbstractFacts):
                 #   self.parse_options_line(words, current_if, ips)
                 # elif words[0] == 'nd6':
                 #   self.parse_nd6_line(words, current_if, ips)
-                # elif words[0] == 'ether':
-                #   self.parse_ether_line(words, current_if, ips)
+                elif words[0] == 'link/ether':
+                  self.parse_ether_line(words, current_if, ips)
                 # elif words[0] == 'media:':
                 #   self.parse_media_line(words, current_if, ips)
                 # elif words[0] == 'status:':
@@ -315,7 +315,7 @@ class RhelFacts(AbstractFacts):
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown', 'script' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown', 'script' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if

@@ -369,7 +369,7 @@ class AixFacts(AbstractFacts):
     # AIX 'ifconfig -a' does not inform about MTU, so remove current_if['mtu'] here
     def parse_interface_line(self, words):
         device = words[0][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -476,7 +476,7 @@ class AixFacts(AbstractFacts):
                     interfaces[current_if['device']] = current_if
                     current_if['gateway'] = self.get_default_gateway(current_if)
                     current_if['macaddress'] = self.get_mac_address(current_if)
-                    current_if['type'] = self.get_interface_type(current_if)
+                    # current_if['type'] = self.get_interface_type(current_if)
                     # current_if['script'] = self.get_ifcfg_script(current_if)
                 elif words[0].startswith('options='):
                     self.parse_options_line(words, current_if, ips)

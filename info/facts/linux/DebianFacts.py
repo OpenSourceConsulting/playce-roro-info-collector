@@ -430,7 +430,7 @@ class DebianFacts(AbstractFacts):
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'type': 'unknown', 'gateway' : 'unknown', 'script' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown', 'script' : 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
