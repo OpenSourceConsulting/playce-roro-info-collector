@@ -67,7 +67,7 @@ class RhelFacts(AbstractFacts):
             print str(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts['results'] = self.results
             return self.results
 
@@ -417,7 +417,16 @@ class RhelFacts(AbstractFacts):
         self.results['kernel_parameters'] = {}
         for line in out.splitlines():
             data = line.split('=')
-            self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
+            key = data[0].strip()
+            value = re.sub('\t', ' ', data[1])
+            if value.__len__() > 1:
+                if key in self.results['kernel_parameters']:
+                    if type(self.results['kernel_parameters'][key]) is not list:
+                        self.results['kernel_parameters'][key] = [self.results['kernel_parameters'][key]]
+                    elif type(self.results['kernel_parameters'][key]) is list:
+                        self.results['kernel_parameters'][key].append(value.strip())
+                else:
+                    self.results['kernel_parameters'][key] = value.strip()
 
     @LogManager.logging
     def get_dmi_facts(self):
