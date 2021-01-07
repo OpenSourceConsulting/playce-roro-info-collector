@@ -20,15 +20,15 @@ ANSI_RE = [
 ]
 
 
-class AixFacts(AbstractFacts):
+class HPFacts(AbstractFacts):
 
-    def __init__(self, params):
+    def __init__(self, params, release):
         AbstractFacts.__init__(self, params, isSudo=False)
-        self.results = { "family" : "aix"}
+        self.results = { "family" : "hp-ux"}
 
     def execute(self):
         try:
-            self.get_distribution_AIX()
+            # self.get_distribution_AIX()
             self.get_hostname()
             self.get_cpu_facts()
             self.get_memory_facts()
@@ -58,6 +58,7 @@ class AixFacts(AbstractFacts):
             self.get_security_info()
             self.get_timezone()
             self.get_firewall()
+            self.get_login_def()
         except Exception as err:
             LogManager.logger.error(err)
 
@@ -68,7 +69,7 @@ class AixFacts(AbstractFacts):
 
     @LogManager.logging
     def get_distribution_AIX(self):
-        out = self.ssh.run_command("/usr/bin/oslevel")
+        out = self.ssh.run_command("/usr/bin/uname -a")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
@@ -855,7 +856,8 @@ class AixFacts(AbstractFacts):
 
 
     @LogManager.logging
-    def get_login_def(self): pass
+    def get_login_def(self):
+        self.results['def_info'] = dict(uid_min=101, uid_max=60000, gid_min=101, gid_max=60000)
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')
@@ -890,6 +892,7 @@ class AixFacts(AbstractFacts):
         self.facts["system_summary"]["kernel"] = self.results['kernel']
         self.facts["system_summary"]["architecture"] = self.results['architecture']
         self.facts["system_summary"]["vendor"] = self.results['product_name']
+        self.facts["system_summary"]["defInfo"] = self.results['def_info']
 
         self.make_cpu_summary()
         self.make_memory_summary()
