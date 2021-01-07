@@ -62,7 +62,7 @@ class AixFacts(AbstractFacts):
             LogManager.logger.error(err)
 
         finally:
-            self.make_system_summary()
+            # self.make_system_summary()
             self.facts["results"] = self.results
             return self.results
 
@@ -514,12 +514,13 @@ class AixFacts(AbstractFacts):
                 if data[0] is 'UID':
                     continue
 
+                #  UID     PID    PPID   C    STIME    TTY  TIME CMD
                 if re.match('[0-9]:[0-9][0-9]', data[7]):
-                    self.results['processes'][data[8]] = dict(uid=data[0], cmd=data[8:])
+                    self.results['processes'][data[8]] = dict(uid=data[0], pid=data[1], cmd=data[8:])
                 elif re.match('[0-9]:[0-9][0-9]', data[6]):
                     if re.match('\[(.*?)\]', data[7]):
                         continue
-                    self.results['processes'][data[7]] = dict(uid=data[0], cmd=data[7:])
+                    self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
 
     @LogManager.logging
     def get_kernel_parameters(self):
@@ -849,6 +850,10 @@ class AixFacts(AbstractFacts):
                 data = line.split()
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
+
+
+    @LogManager.logging
+    def get_login_def(self): pass
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')

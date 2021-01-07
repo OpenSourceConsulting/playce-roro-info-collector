@@ -63,6 +63,7 @@ class RhelFacts(AbstractFacts):
             self.get_security_info()
             self.get_dns()
             # self.get_bonding()
+            self.get_login_def()
         except Exception as err:
             LogManager.logger.error(err)
 
@@ -402,12 +403,12 @@ class RhelFacts(AbstractFacts):
                 data = line.split()
 
                 if re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[7]):
-                    self.results['processes'][data[7]] = dict(uid=data[0], cmd=data[8:])
+                    self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[8:])
                     # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
                 elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
                     if re.match('\[(.*?)\]', data[7]):
                         continue
-                    self.results['processes'][data[7]] = dict(uid=data[0], cmd=data[7:])
+                    self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
                     # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
     @LogManager.logging
@@ -801,6 +802,23 @@ class RhelFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
+    @LogManager.logging
+    def get_login_def(self):
+        out = self.ssh.run_command("cat /etc/login.defs")
+        self.results['def_info'] = {}
+        targetField = [u'UID_MIN', u'UID_MAX', u'GID_MIN', u'GID_MAX']
+        for line in out.splitlines():
+
+            regex = re.compile('^\#')
+            if regex.match(line) or line in ['', '\n']:
+                continue
+
+            data = line.split()
+
+            if data[0] in targetField:
+                self.results['def_info'][data[0].lower()] = data[1]
+
+
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('ip route | grep default')
 
@@ -839,6 +857,7 @@ class RhelFacts(AbstractFacts):
         self.facts["system_summary"]["kernel"] = self.results['kernel']
         self.facts["system_summary"]["architecture"] = self.results['architecture']
         self.facts["system_summary"]["vendor"] = self.results['product_name']
+        self.facts["system_summary"]["defInfo"] = self.results['def_info']
 
         self.make_cpu_summary()
         self.make_memory_summary()

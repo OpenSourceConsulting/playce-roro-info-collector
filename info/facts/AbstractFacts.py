@@ -106,6 +106,9 @@ class AbstractFacts(ABC):
     @abc.abstractmethod
     def get_dns(self): pass
 
+    @abc.abstractmethod
+    def get_login_def(self): pass
+
     @LogManager.logging
     def get_results(self):
         r = json.dumps(self.facts, indent=2)
