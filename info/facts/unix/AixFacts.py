@@ -28,7 +28,7 @@ class AixFacts(AbstractFacts):
 
     def execute(self):
         try:
-            # self.get_distribution_AIX()
+            self.get_distribution_AIX()
             self.get_hostname()
             self.get_cpu_facts()
             self.get_memory_facts()
@@ -63,13 +63,13 @@ class AixFacts(AbstractFacts):
             LogManager.logger.error(err)
 
         finally:
-            # self.make_system_summary()
+            self.make_system_summary()
             self.facts["results"] = self.results
             return self.results
 
     @LogManager.logging
     def get_distribution_AIX(self):
-        out = self.ssh.run_command("/usr/bin/uname -a")
+        out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
