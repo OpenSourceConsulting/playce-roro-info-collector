@@ -206,14 +206,16 @@ class AixFacts(AbstractFacts):
                 if data[0] in 'rootvg:' or data[0] in 'LV':
                     continue
 
-                self.results['extra_partitions'][data[6]] = \
-                    dict(mount_point=data[0], type=data[1], lv_state=data[5],
-                         extra='False')
-
-                if data[6] not in root_partitions:
-                    self.results['extra_partitions'][data[6]] = \
-                        dict(mount_point=data[0], type=data[1], lv_state=data[5],
-                             extra='True')
+                partInfo = dict(mount_point=data[0], type=data[1], lv_state=data[5], extra='False')
+                if data[6] not in self.results['extra_partitions']:
+                    self.results['extra_partitions'][data[6]] = []
+                    self.results['extra_partitions'][data[6]].append(partInfo)
+                else:
+                    if data[6] not in root_partitions:
+                        self.results['extra_partitions'][data[6]].append(dict(mount_point=data[0], type=data[1], lv_state=data[5],
+                             extra='True'))
+                    else:
+                        self.results['extra_partitions'][data[6]].append(partInfo)
 
     @LogManager.logging
     def get_vgs_facts(self):
