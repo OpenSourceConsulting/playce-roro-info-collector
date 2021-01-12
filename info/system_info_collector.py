@@ -7,8 +7,7 @@ import time
 warnings.filterwarnings('ignore')
 
 from facts.linux.LinuxFactorGenerator import *
-from facts.aix.AixFacts import *
-from info.facts.sample.facts.windowsFacts import *
+from facts.unix.UnixFactorGenerator import *
 
 
 def get_args():
@@ -50,11 +49,12 @@ def main(params):
         module = LinuxFactorGenerator(params)
         module.get_info()
     elif params['target'] == 'unix':
-        module = AixFacts(params);
-        module.execute()
+        module = UnixFactorGenerator(params);
+        module.get_info()
     elif params['target'] == 'windows':
-        module = WINDOWS(params)
-        module.execute()
+        pass
+        # module = WINDOWS(params)
+        # module.execute()
 
     module.get_results()
 

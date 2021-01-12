@@ -885,7 +885,7 @@ class AixFacts(AbstractFacts):
             return data[1].strip().replace(r'\n', '')
 
     def make_system_summary(self):
-        self.facts["system_summary"]["os"] = self.results['distribution_version']
+        self.facts["system_summary"]["os"] = 'Aix ' + self.results['distribution_version']
         self.facts["system_summary"]["hostname"] = self.results['hostname']
         self.facts["system_summary"]["family"] = self.results['family']
 

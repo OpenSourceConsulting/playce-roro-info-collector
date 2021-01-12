@@ -14,6 +14,8 @@ class LogManager(object):
                 :param log_dir:
                 :return:
                 '''
+        if not log_dir:
+            log_dir = './assessments/logs'
 
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
@@ -24,6 +26,7 @@ class LogManager(object):
                             filename=os.path.join(log_dir,
                                                   os.path.splitext(os.path.basename(__file__))[0] + 'assessment.log'),
                             filemode='a')
+
         logging.getLogger("paramiko").setLevel(logging.WARNING)
         cls.logger = logging.getLogger(__name__)
 
