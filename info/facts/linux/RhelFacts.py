@@ -117,7 +117,7 @@ class RhelFacts(AbstractFacts):
 
     @LogManager.logging
     def get_df(self):
-        out = self.ssh.run_command("df -Th")
+        out = self.ssh.run_command("df -Tm")
 
         if out:
             self.results['partitions'] = {}
@@ -388,7 +388,7 @@ class RhelFacts(AbstractFacts):
 
     @LogManager.logging
     def get_ps_lists(self):
-        out = self.ssh.run_command("ps -ef")
+        out = self.ssh.run_command("ps -ef | grep -v ps")
 
         if out:
             self.results['processes'] = {}
@@ -513,7 +513,7 @@ class RhelFacts(AbstractFacts):
             'listen': [],
             'established': {}
         }
-        out = self.ssh.run_command("netstat -nap --ip | grep LISTEN")
+        out = self.ssh.run_command("netstat -nap --ip -6 | grep LISTEN")
         if out:
             listen_port = []
             self.results['port_list']['listen'] = listen_port
@@ -524,16 +524,17 @@ class RhelFacts(AbstractFacts):
                 f_addr, f_port = data[4].rsplit(':', 1)
                 pid, p_name = data[6].rsplit('/', 1)
 
-                port_info = {
-                    "protocol": data[0],
-                    "bind_addr": l_addr,
-                    "port": l_port,
-                    "pid": pid,
-                    "name": p_name,
-                }
-                listen_port.append(port_info)
+                if l_addr.count(':') < 4:
+                    port_info = {
+                        "protocol": data[0],
+                        "bind_addr": l_addr,
+                        "port": l_port,
+                        "pid": pid,
+                        "name": p_name,
+                    }
+                    listen_port.append(port_info)
 
-        out = self.ssh.run_command("netstat -nap --ip | tail -n+3 | grep ESTABLISHED")
+        out = self.ssh.run_command("netstat -nap --ip -6 | tail -n+3 | grep ESTABLISHED")
 
         if out:
             any_to_local = []

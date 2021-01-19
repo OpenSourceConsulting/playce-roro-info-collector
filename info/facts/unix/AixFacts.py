@@ -857,7 +857,7 @@ class AixFacts(AbstractFacts):
 
     @LogManager.logging
     def get_login_def(self):
-        self.results['def_info'] = dict(uid_min=201, uid_max=60000, gid_min=201, gid_max=60000)
+        self.results['def_info'] = dict(uid_min="201", uid_max="60000", gid_min="201", gid_max="60000")
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')
