@@ -1,4 +1,3 @@
-import logging
 import re
 import struct
 import socket
@@ -76,6 +75,7 @@ class RhelFacts(AbstractFacts):
     def get_hostname(self):
         out = self.ssh.run_command("uname -n")
         self.results['hostname'] = out.replace('\n', '')
+
     @LogManager.logging
     def get_cpu_facts(self):
         lscpu = self.ssh.run_command("lscpu")
@@ -119,8 +119,8 @@ class RhelFacts(AbstractFacts):
     def get_df(self):
         out = self.ssh.run_command("df -Tm")
 
+        self.results['partitions'] = {}
         if out:
-            self.results['partitions'] = {}
             regex = re.compile(r'^/dev/', re.IGNORECASE)
             for line in out.splitlines():
                 if regex.match(line):
@@ -151,8 +151,8 @@ class RhelFacts(AbstractFacts):
     @LogManager.logging
     def get_vgs_facts(self):
         out = self.ssh.run_command("pvs | tail -1")
+        self.results['vgs'] = {}
         if out:
-            self.results['vgs'] = {}
             for line in out.splitlines():
                 vg = line.split()
 
@@ -163,36 +163,37 @@ class RhelFacts(AbstractFacts):
                     'p_size': vg[4],
                     'p_free': vg[5]
                 }
+
     @LogManager.logging
     def get_users(self):
         # List of users excepted
-        except_users = []
         out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
+        self.results['users'] = {}
         if out:
-            self.results['users'] = {}
+            except_users = []
             for line in out.splitlines():
                 user = line.split(':')
 
                 # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
                 if not user[0] in except_users:
-                    profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.profile")
-                    kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.kshrc")
+                    profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*profile")
+                    rc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*rc")
 
                     self.results['users'][user[0]] = {'uid': user[2],
                                                       'gid': user[3],
                                                       'homedir': user[5],
                                                       'shell': user[6],
-                                                      'profile': profile + kshrc
+                                                      'profile': profile + rc
                                                       }
 
     @LogManager.logging
     def get_groups(self):
         # List of groups excepted
-        except_groups = []
 
         out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
+        self.results['groups'] = {}
         if out:
-            self.results['groups'] = {}
+            except_groups = []
             for line in out.splitlines():
                 group = line.split(':')
 
@@ -204,9 +205,9 @@ class RhelFacts(AbstractFacts):
 
     @LogManager.logging
     def get_password_of_users(self):
+        self.results['shadow'] = {}
         out = self.ssh.run_command("cat /etc/shadow")
         if out:
-            self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
                 # !! : no password, * : block
@@ -236,17 +237,15 @@ class RhelFacts(AbstractFacts):
 
     @LogManager.logging
     def get_crontabs(self):
-
+        self.results['crontabs'] = {}
         out = self.ssh.run_command("find /var/spool/cron  -type f")
         if out:
-            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('cat ' + line)
                 self.results['crontabs'][line] = out
 
         out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
         if out:
-            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('cat ' + line)
                 self.results['crontabs'][line] = out
@@ -277,6 +276,8 @@ class RhelFacts(AbstractFacts):
             all_ipv6_addresses=[],
         )
 
+        self.results['interfaces'] = interfaces
+
         """
             Red Hat - ifconfig -a deprecate (ip addr)
         """
@@ -298,7 +299,7 @@ class RhelFacts(AbstractFacts):
                 # elif words[0] == 'nd6':
                 #   self.parse_nd6_line(words, current_if, ips)
                 elif words[0] == 'link/ether':
-                  self.parse_ether_line(words, current_if, ips)
+                    self.parse_ether_line(words, current_if, ips)
                 # elif words[0] == 'media:':
                 #   self.parse_media_line(words, current_if, ips)
                 # elif words[0] == 'status:':
@@ -312,11 +313,9 @@ class RhelFacts(AbstractFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-        self.results['interfaces'] = interfaces
-
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown', 'script' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway': 'unknown', 'script': 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -390,8 +389,8 @@ class RhelFacts(AbstractFacts):
     def get_ps_lists(self):
         out = self.ssh.run_command("ps -ef | grep -v ps")
 
+        self.results['processes'] = {}
         if out:
-            self.results['processes'] = {}
 
             for line in out.splitlines():
                 if "<defunct>" in line:
@@ -454,20 +453,20 @@ class RhelFacts(AbstractFacts):
     def get_route_table(self):
         out = self.ssh.run_command("netstat -rn |  tail -n+3")
 
+        self.results['route_table'] = []
         if out:
-            self.results['route_table'] = []
             # Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
             for line in out.splitlines():
                 data = line.split()
                 self.results['route_table'].append({
-                    'destination' : data[0],
-                    'gateway' : data[1],
+                    'destination': data[0],
+                    'gateway': data[1],
                     # 'genmask' : data[2],
                     # 'flags' : data[3],
                     # 'mss' : data[4],
                     # 'window' : data[5],
                     # 'irtt' : data[6],
-                    'iface' : data[7],
+                    'iface': data[7],
                 })
 
                 # out = self.ssh.run_command("ip route")
@@ -505,7 +504,6 @@ class RhelFacts(AbstractFacts):
         #     #   info["Src"] = ''
         #
         #     self.results['route_table']['list'].append(info)
-
 
     @LogManager.logging
     def get_listen_port(self):
@@ -629,30 +627,30 @@ class RhelFacts(AbstractFacts):
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
+        self.results['locale'] = dict()
         if locale:
-          self.results['locale'] = dict()
 
-          for line in locale.splitlines():
-            key, value = line.split("=")
-            self.results['locale'][key] = re.sub('"', '', value)
+            for line in locale.splitlines():
+                key, value = line.split("=")
+                self.results['locale'][key] = re.sub('"', '', value)
 
     @LogManager.logging
     def get_env(self):
+        self.results['env'] = dict()
         env = self.ssh.run_command("env")
 
         if env:
-          self.results['env'] = dict()
 
-          for line in env.splitlines():
-            key, value = line.split("=")
-            self.results['env'][key]=value
+            for line in env.splitlines():
+                key, value = line.split("=")
+                self.results['env'][key] = value
 
     @LogManager.logging
     def get_lvm_info(self):
         vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
 
+        self.results['vgs'] = {}
         if vgs:
-            self.results['vgs'] = {}
             for vg in vgs.splitlines():
                 self.results['vgs'][vg] = dict(pvs=[], lvs=[])
 
@@ -661,24 +659,24 @@ class RhelFacts(AbstractFacts):
         if lvs:
             for line in lvs.splitlines():
                 line = line.strip()
-                if re.match('(-+\s\w+\s\w+\s+-+)',line):
+                if re.match('(-+\s\w+\s\w+\s+-+)', line):
                     lv_info = {}
                 if 'LV Path' in line:
                     value = line.replace("LV Path", "").strip()
-                    lv_info.update({"lv_path" : value})
+                    lv_info.update({"lv_path": value})
                 elif 'LV Name' in line:
                     value = line.replace("LV Name", "").strip()
-                    lv_info.update({"lv_name" : value})
+                    lv_info.update({"lv_name": value})
                 elif 'VG Name' in line:
                     value = line.replace("VG Name", "").strip()
-                    lv_info.update({"vg_name" : value})
+                    lv_info.update({"vg_name": value})
                     self.results['vgs'][value]['lvs'].append(lv_info)
                 elif 'LV UUID' in line:
                     value = line.replace("LV UUID", "").strip()
-                    lv_info.update({"lv_uuid" : value})
+                    lv_info.update({"lv_uuid": value})
                 elif 'LV Size' in line:
                     value = line.replace("LV Size", "").strip()
-                    lv_info.update({"lv_size" : value})
+                    lv_info.update({"lv_size": value})
                 # elif 'LV Write Access' in line:
                 # elif 'Current LE' in line:
                 # elif 'Block device' in line:
@@ -689,37 +687,36 @@ class RhelFacts(AbstractFacts):
         if pvs:
             for line in pvs.splitlines():
                 line = line.strip()
-                if re.match('(-+\s\w+\s\w+\s+-+)',line):
+                if re.match('(-+\s\w+\s\w+\s+-+)', line):
                     pv_info = {}
                 elif 'PV Name' in line:
                     value = line.replace("PV Name", "").strip()
-                    pv_info.update({"pv_name" : value})
+                    pv_info.update({"pv_name": value})
                 elif 'VG Name' in line:
                     value = line.replace("VG Name", "").strip()
-                    pv_info.update({"vg_name" : value})
+                    pv_info.update({"vg_name": value})
                     self.results['vgs'][value]['pvs'].append(pv_info)
                 elif 'PV Size' in line:
                     value = line.replace("PV Size", "").strip()
-                    pv_info.update({"pv_size" : value})
+                    pv_info.update({"pv_size": value})
                 elif 'Allocatable' in line:
                     value = line.replace("Allocatable", "").strip()
-                    pv_info.update({"allocatable" : value})
+                    pv_info.update({"allocatable": value})
                 elif 'PE Size' in line:
                     value = line.replace("PE Size", "").strip()
-                    pv_info.update({"pe_size" : value})
+                    pv_info.update({"pe_size": value})
                 elif 'Total PE' in line:
                     value = line.replace("Total PE", "").strip()
-                    pv_info.update({"total_pe" : value})
+                    pv_info.update({"total_pe": value})
                 elif 'Free PE' in line:
                     value = line.replace("Free PE", "").strip()
-                    pv_info.update({"free_pe" : value})
+                    pv_info.update({"free_pe": value})
                 elif 'Allocated PE' in line:
                     value = line.replace("Allocated PE", "").strip()
-                    pv_info.update({"allocated_pe" : value})
+                    pv_info.update({"allocated_pe": value})
                 elif 'PV UUID' in line:
                     value = line.replace("PV UUID", "").strip()
-                    pv_info.update({"pv_uuid" : value})
-
+                    pv_info.update({"pv_uuid": value})
 
     def get_fs_info(self):
         None
@@ -728,8 +725,8 @@ class RhelFacts(AbstractFacts):
     def get_fstab_info(self):
         fstab = self.ssh.run_command("cat /etc/fstab")
 
+        self.results['fstab'] = []
         if fstab:
-            self.results['fstab'] = []
             regex = re.compile('^\#')
             for line in fstab.splitlines():
                 if regex.match(line) or line in ['', '\n']:
@@ -742,15 +739,14 @@ class RhelFacts(AbstractFacts):
 
     @LogManager.logging
     def get_daemon_list(self):
-
+        self.results['daemon_list'] = {}
         version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
-        version = float(version.replace('\"',''))
+        version = float(version.replace('\"', ''))
         if version >= 7:
             cmd = "systemctl list-unit-files"
             out = self.ssh.run_command(cmd)
 
             if out:
-                self.results['daemon_list'] = {}
                 for line in out.splitlines():
                     if 'STATE' in line:
                         continue
@@ -762,7 +758,6 @@ class RhelFacts(AbstractFacts):
             cmd = "service --status-all"
             out = self.ssh.run_command(cmd)
             if out:
-                self.results['daemon_list'] = {}
                 for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
 
                     if '+' in m.group(1):
@@ -772,21 +767,20 @@ class RhelFacts(AbstractFacts):
                     else:
                         self.results['daemon_list'][m.group(2)] = "unknown"
 
-
     @LogManager.logging
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")
 
+        self.results['security'] = {"password": dict()}
         if out:
-          self.results['security'] = {"password": dict()}
-          for line in out.splitlines():
+            for line in out.splitlines():
 
-              regex = re.compile('^\#')
-              if regex.match(line) or line in ['', '\n']:
-                continue
+                regex = re.compile('^\#')
+                if regex.match(line) or line in ['', '\n']:
+                    continue
 
-              key, value = line.split()
-              self.results['security']["password"][key] = value
+                key, value = line.split()
+                self.results['security']["password"][key] = value
 
     @LogManager.logging
     def get_dns(self):
@@ -819,7 +813,6 @@ class RhelFacts(AbstractFacts):
             if data[0] in targetField:
                 self.results['def_info'][data[0].lower()] = data[1]
 
-
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('ip route | grep default')
 
@@ -840,7 +833,7 @@ class RhelFacts(AbstractFacts):
 
     def get_bonding(self):
         rootPath = '/etc/sysconfig/network-scripts'
-        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d '-'' % rootPath)
+        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d ' - '' % rootPath)
 
         if list:
             self.results['bonding'] = {}
@@ -848,7 +841,6 @@ class RhelFacts(AbstractFacts):
                 cfg = self.ssh.run_command('cat %s/ifcfg-%s' % rootPath, bond)
                 self.results['bonding'][bond] = cfg
                 # ToDo: Detail /proc/net/bonding/{bond}
-
 
     def make_system_summary(self):
         self.facts["system_summary"]["os"] = self.results['distribution_version']

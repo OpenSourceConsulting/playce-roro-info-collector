@@ -171,8 +171,8 @@ class AixFacts(AbstractFacts):
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
+        self.results['partitions'] = {}
         if out:
-            self.results['partitions'] = {}
             regex = re.compile(r'^/dev/', re.IGNORECASE)
             for line in out.splitlines():
                 if regex.match(line):
@@ -200,8 +200,8 @@ class AixFacts(AbstractFacts):
 
         out = self.ssh.run_command("/usr/sbin/lsvg -l rootvg")
 
+        self.results['extra_partitions'] = {}
         if out:
-            self.results['extra_partitions'] = {}
             for line in out.splitlines():
                 data = line.split()
                 if data[0] in 'rootvg:' or data[0] in 'LV':
@@ -239,10 +239,10 @@ class AixFacts(AbstractFacts):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
         cmd = "%s | %s %s -p" % (lsvg_path, xargs_path, lsvg_path)
+        self.results['vgs'] = {}
         if lsvg_path and xargs_path:
             out = self.ssh.run_command(cmd)
             if out:
-                self.results['vgs'] = {}
                 for m in re.finditer(
                         r'(\S+):\n.*FREE DISTRIBUTION(\n(\S+)\s+(\w+)\s+(\d+)\s+(\d+).*)+',
                         out):
@@ -271,8 +271,8 @@ class AixFacts(AbstractFacts):
                         'anonymou']
 
         out = self.ssh.run_command("/usr/bin/cat /etc/passwd | egrep -v '^#'")
+        self.results['users'] = {}
         if out:
-            self.results['users'] = {}
             for line in out.splitlines():
                 user = line.split(':')
 
@@ -298,8 +298,8 @@ class AixFacts(AbstractFacts):
                          'anonymou']
 
         out = self.ssh.run_command("/usr/bin/cat /etc/group | egrep -v '^#'")
+        self.results['groups'] = {}
         if out:
-            self.results['groups'] = {}
             for line in out.splitlines():
                 group = line.split(':')
 
@@ -315,8 +315,8 @@ class AixFacts(AbstractFacts):
             "/usr/bin/cat /etc/security/passwd|egrep ':|password' | sed 's/password = //g' | tr -d '\t '")
         regex = re.compile(r":\n", re.IGNORECASE)
         out = regex.sub(":", tmp_out)
+        self.results['shadow'] = {}
         if out:
-            self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
                 if user[1] != '*':
@@ -329,10 +329,8 @@ class AixFacts(AbstractFacts):
         regex = re.compile(r"\t", re.IGNORECASE)
         out = regex.sub("", tmp_out)
 
+        self.results['ulimits'] = {}
         if out:
-            regex = re.compile(r' = ', re.IGNORECASE)
-
-            self.results['ulimits'] = {}
             for line in out.splitlines():
                 if ":" in line:
                     user = line.split(':')
@@ -346,8 +344,8 @@ class AixFacts(AbstractFacts):
     def get_crontabs(self):
         out = self.ssh.run_command(
             "/usr/bin/find /var/spool/cron/crontabs -type file")
+        self.results['crontabs'] = {}
         if out:
-            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
                 self.results['crontabs'][line] = out
@@ -469,7 +467,7 @@ class AixFacts(AbstractFacts):
             all_ipv6_addresses=[],
         )
         out = self.ssh.run_command('/etc/ifconfig -a')
-
+        self.results['interfaces'] = interfaces
         for line in out.splitlines():
             if line:
                 words = line.split()
@@ -501,14 +499,14 @@ class AixFacts(AbstractFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-        self.results['interfaces'] = interfaces
+
 
     @LogManager.logging
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
+        self.results['processes'] = {}
         if out:
-            self.results['processes'] = {}
 
             for line in out.splitlines():
                 if "<defunct>" in line:
@@ -530,8 +528,8 @@ class AixFacts(AbstractFacts):
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
+        self.results['kernel_parameters'] = {}
         if out:
-            self.results['kernel_parameters'] = {}
 
             for line in out.splitlines():
                 data = line.split()
@@ -659,8 +657,8 @@ class AixFacts(AbstractFacts):
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
+        self.results['locale'] = dict()
         if locale:
-            self.results['locale'] = dict()
 
             for line in locale.splitlines():
                 key, value = line.split("=")
@@ -670,8 +668,8 @@ class AixFacts(AbstractFacts):
     def get_env(self):
         env = self.ssh.run_command("env")
 
+        self.results['env'] = dict()
         if env:
-            self.results['env'] = dict()
 
             for line in env.splitlines():
                 key, value = line.split("=")
@@ -682,10 +680,10 @@ class AixFacts(AbstractFacts):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
         cmd = "%s | %s %s -p" % (lsvg_path, xargs_path, lsvg_path)
+        self.results['vgs'] = {}
         if lsvg_path and xargs_path:
             out = self.ssh.run_command(cmd)
             if out:
-                self.results['vgs'] = {}
                 for m in re.finditer(
                         r'(\S+):\n.*FREE DISTRIBUTION(\n(\S+)\s+(\w+)\s+(\d+)\s+(\d+).*)+',
                         out):
@@ -728,8 +726,8 @@ class AixFacts(AbstractFacts):
     def get_fs_info(self):
         fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
 
+        self.results['file_system'] = dict()
         if fsList:
-            self.results['file_system'] = dict()
 
             for line in fsList.splitlines():
 
@@ -750,8 +748,8 @@ class AixFacts(AbstractFacts):
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
 
+        self.results['daemon_list'] = []
         if daemonList:
-            self.results['daemon_list'] = []
 
             for line in daemonList.splitlines():
 

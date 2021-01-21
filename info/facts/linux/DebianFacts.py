@@ -107,35 +107,7 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_memory_facts(self):
-        """
-    4044296 K total memory
-        67392 K used memory
-       365448 K active memory
-       128632 K inactive memory
-      3447380 K free memory
-        34908 K buffer memory
-       494616 K swap cache
-       998396 K total swap
-            0 K used swap
-       998396 K free swap
-         6912 non-nice user cpu ticks
-          830 nice user cpu ticks
-         7165 system cpu ticks
-     57036338 idle cpu ticks
-         4679 IO-wait cpu ticks
-            0 IRQ cpu ticks
-         1116 softirq cpu ticks
-         6436 stolen cpu ticks
-       402961 pages paged in
-       572728 pages paged out
-            0 pages swapped in
-            0 pages swapped out
-      7790446 interrupts
-      9727257 CPU context switches
-   1599004765 boot time
-         9797 forks
-    :return:
-    """
+
         self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
         out = self.ssh.run_command("vmstat -s")
         for line in out.splitlines():
@@ -165,21 +137,11 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_df(self):
-        """
-    Filesystem     Type      Size  Used Avail Use% Mounted on
-    udev           devtmpfs  2.0G     0  2.0G   0% /dev
-    tmpfs          tmpfs     395M   11M  385M   3% /run
-    /dev/sda1      ext4       19G  1.6G   17G   9% /
-    tmpfs          tmpfs     2.0G     0  2.0G   0% /dev/shm
-    tmpfs          tmpfs     5.0M     0  5.0M   0% /run/lock
-    tmpfs          tmpfs     2.0G     0  2.0G   0% /sys/fs/cgroup
-    tmpfs          tmpfs     395M     0  395M   0% /run/user/1000
-    :return:
-    """
+
         out = self.ssh.run_command("df -Tm")
 
+        self.results['partitions'] = {}
         if out:
-            self.results['partitions'] = {}
             regex = re.compile(r'^/dev/', re.IGNORECASE)
             for line in out.splitlines():
                 if regex.match(line):
@@ -213,8 +175,8 @@ class DebianFacts(AbstractFacts):
     @LogManager.logging
     def get_vgs_facts(self):
         out = self.ssh.run_command("pvs | tail -1")
+        self.results['vgs'] = {}
         if out:
-            self.results['vgs'] = {}
             for line in out.splitlines():
                 vg = line.split()
 
@@ -229,17 +191,17 @@ class DebianFacts(AbstractFacts):
     @LogManager.logging
     def get_users(self):
         # List of users excepted
-        except_users = []
         out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
+        self.results['users'] = {}
         if out:
-            self.results['users'] = {}
+            except_users = []
             for line in out.splitlines():
                 user = line.split(':')
 
                 # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
                 if not user[0] in except_users:
-                    profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.profile")
-                    kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.kshrc")
+                    profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*profile")
+                    kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*rc")
 
                     self.results['users'][user[0]] = {'uid': user[2],
                                                       'gid': user[3],
@@ -250,45 +212,12 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_groups(self):
-        """
-     root:x:0:
-     daemon:x:1:
-     bin:x:2:
-     sys:x:3:
-     adm:x:4:syslog,roro
-     tty:x:5:
-     disk:x:6:
-     lp:x:7:
-     mail:x:8:
-     news:x:9:
-     uucp:x:10:
-     man:x:12:
-     proxy:x:13:
-     kmem:x:15:
-     dialout:x:20:
-     fax:x:21:
-     voice:x:22:
-     cdrom:x:24:roro
-     floppy:x:25:
-     tape:x:26:
-     sudo:x:27:roro
-     audio:x:29:
-     dip:x:30:roro
-     www-data:x:33:
-     backup:x:34:
-     operator:x:37:
-     list:x:38:
-     irc:x:39:
-     src:x:40:
-     gnats:x:41:
-     shadow:x:42:
-    """
         # List of groups excepted
-        except_groups = []
 
+        self.results['groups'] = {}
         out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
         if out:
-            self.results['groups'] = {}
+            except_groups = []
             for line in out.splitlines():
                 group = line.split(':')
 
@@ -301,8 +230,8 @@ class DebianFacts(AbstractFacts):
     @LogManager.logging
     def get_password_of_users(self):
         out = self.ssh.run_command("cat /etc/shadow")
+        self.results['shadow'] = {}
         if out:
-            self.results['shadow'] = {}
             for line in out.splitlines():
                 user = line.split(':')
                 # !! : no password, * : block
@@ -311,24 +240,7 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_ulimits(self):
-        """
-        core file size          (blocks, -c) 0
-        data seg size           (kbytes, -d) unlimited
-        scheduling priority             (-e) 0
-        file size               (blocks, -f) unlimited
-        pending signals                 (-i) 15633
-        max locked memory       (kbytes, -l) 64
-        max memory size         (kbytes, -m) unlimited
-        open files                      (-n) 1024
-        pipe size            (512 bytes, -p) 8
-        POSIX message queues     (bytes, -q) 819200
-        real-time priority              (-r) 0
-        stack size              (kbytes, -s) 8192
-        cpu time               (seconds, -t) unlimited
-        max user processes              (-u) 15633
-        virtual memory          (kbytes, -v) unlimited
-        file locks                      (-x) unlimited
-        """
+
         user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
 
         self.results['ulimits'] = {}
@@ -352,16 +264,15 @@ class DebianFacts(AbstractFacts):
     @LogManager.logging
     def get_crontabs(self):
 
+        self.results['crontabs'] = {}
         out = self.ssh.run_command("find /var/spool/cron  -type f")
         if out:
-            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('cat ' + line)
                 self.results['crontabs'][line] = out
 
         out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
         if out:
-            self.results['crontabs'] = {}
             for line in out.splitlines():
                 out = self.ssh.run_command('cat ' + line)
                 self.results['crontabs'][line] = out
@@ -392,7 +303,7 @@ class DebianFacts(AbstractFacts):
             all_ipv4_addresses=[],
             all_ipv6_addresses=[],
         )
-
+        self.results['interfaces'] = interfaces
         out = self.ssh.run_command("ip addr")
         for line in out.splitlines():
             if line:
@@ -425,7 +336,7 @@ class DebianFacts(AbstractFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-        self.results['interfaces'] = interfaces
+
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
@@ -502,8 +413,8 @@ class DebianFacts(AbstractFacts):
     def get_ps_lists(self):
         out = self.ssh.run_command("ps -ef | grep -v ps")
 
+        self.results['processes'] = {}
         if out:
-            self.results['processes'] = {}
 
             for line in out.splitlines():
                 if "<defunct>" in line:
@@ -543,210 +454,6 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_dmi_facts(self):
-        """
-    Getting SMBIOS data from sysfs.
-    SMBIOS 2.8 present.
-    13 structures occupying 790 bytes.
-    Table at 0xBFFFFCE0.
-
-    Handle 0x0000, DMI type 0, 24 bytes
-    BIOS Information
-      Vendor: SeaBIOS
-      Version: 1.11.0-2.el7
-      Release Date: 04/01/2014
-      Address: 0xE8000
-      Runtime Size: 96 kB
-      ROM Size: 64 kB
-      Characteristics:
-        BIOS characteristics not supported
-        Targeted content distribution is supported
-      BIOS Revision: 0.0
-
-    Handle 0x0100, DMI type 1, 27 bytes
-    System Information
-      Manufacturer: oVirt
-      Product Name: oVirt Node
-      Version: 7-8.2003.0.el7.centos
-      Serial Number: 39333835-3636-4753-4830-333758564644
-      UUID: F65BB4F0-F5A5-4DFA-B4E6-1DFFB3C80488
-      Wake-up Type: Power Switch
-      SKU Number: Not Specified
-      Family: Red Hat Enterprise Linux
-
-    Handle 0x0300, DMI type 3, 21 bytes
-    Chassis Information
-      Manufacturer: Red Hat
-      Type: Other
-      Lock: Not Present
-      Version: RHEL 7.6.0 PC (i440FX + PIIX, 1996)
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Boot-up State: Safe
-      Power Supply State: Safe
-      Thermal State: Safe
-      Security Status: Unknown
-      OEM Information: 0x00000000
-      Height: Unspecified
-      Number Of Power Cords: Unspecified
-      Contained Elements: 0
-
-    Handle 0x0400, DMI type 4, 42 bytes
-    Processor Information
-      Socket Designation: CPU 0
-      Type: Central Processor
-      Family: Other
-      Manufacturer: Red Hat
-      ID: C1 06 02 00 FF FB 8B 07
-      Version: RHEL 7.6.0 PC (i440FX + PIIX, 1996)
-      Voltage: Unknown
-      External Clock: Unknown
-      Max Speed: 2000 MHz
-      Current Speed: 2000 MHz
-      Status: Populated, Enabled
-      Upgrade: Other
-      L1 Cache Handle: Not Provided
-      L2 Cache Handle: Not Provided
-      L3 Cache Handle: Not Provided
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Part Number: Not Specified
-      Core Count: 1
-      Core Enabled: 1
-      Thread Count: 1
-      Characteristics: None
-
-    Handle 0x0401, DMI type 4, 42 bytes
-    Processor Information
-      Socket Designation: CPU 1
-      Type: Central Processor
-      Family: Other
-      Manufacturer: Red Hat
-      ID: C1 06 02 00 FF FB 8B 07
-      Version: RHEL 7.6.0 PC (i440FX + PIIX, 1996)
-      Voltage: Unknown
-      External Clock: Unknown
-      Max Speed: 2000 MHz
-      Current Speed: 2000 MHz
-      Status: Populated, Enabled
-      Upgrade: Other
-      L1 Cache Handle: Not Provided
-      L2 Cache Handle: Not Provided
-      L3 Cache Handle: Not Provided
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Part Number: Not Specified
-      Core Count: 1
-      Core Enabled: 1
-      Thread Count: 1
-      Characteristics: None
-
-    Handle 0x0402, DMI type 4, 42 bytes
-    Processor Information
-      Socket Designation: CPU 2
-      Type: Central Processor
-      Family: Other
-      Manufacturer: Red Hat
-      ID: C1 06 02 00 FF FB 8B 07
-      Version: RHEL 7.6.0 PC (i440FX + PIIX, 1996)
-      Voltage: Unknown
-      External Clock: Unknown
-      Max Speed: 2000 MHz
-      Current Speed: 2000 MHz
-      Status: Populated, Enabled
-      Upgrade: Other
-      L1 Cache Handle: Not Provided
-      L2 Cache Handle: Not Provided
-      L3 Cache Handle: Not Provided
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Part Number: Not Specified
-      Core Count: 1
-      Core Enabled: 1
-      Thread Count: 1
-      Characteristics: None
-
-    Handle 0x0403, DMI type 4, 42 bytes
-    Processor Information
-      Socket Designation: CPU 3
-      Type: Central Processor
-      Family: Other
-      Manufacturer: Red Hat
-      ID: C1 06 02 00 FF FB 8B 07
-      Version: RHEL 7.6.0 PC (i440FX + PIIX, 1996)
-      Voltage: Unknown
-      External Clock: Unknown
-      Max Speed: 2000 MHz
-      Current Speed: 2000 MHz
-      Status: Populated, Enabled
-      Upgrade: Other
-      L1 Cache Handle: Not Provided
-      L2 Cache Handle: Not Provided
-      L3 Cache Handle: Not Provided
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Part Number: Not Specified
-      Core Count: 1
-      Core Enabled: 1
-      Thread Count: 1
-      Characteristics: None
-
-    Handle 0x1000, DMI type 16, 23 bytes
-    Physical Memory Array
-      Location: Other
-      Use: System Memory
-      Error Correction Type: Multi-bit ECC
-      Maximum Capacity: 4 GB
-      Error Information Handle: Not Provided
-      Number Of Devices: 1
-
-    Handle 0x1100, DMI type 17, 40 bytes
-    Memory Device
-      Array Handle: 0x1000
-      Error Information Handle: Not Provided
-      Total Width: Unknown
-      Data Width: Unknown
-      Size: 4096 MB
-      Form Factor: DIMM
-      Set: None
-      Locator: DIMM 0
-      Bank Locator: Not Specified
-      Type: RAM
-      Type Detail: Other
-      Speed: Unknown
-      Manufacturer: Red Hat
-      Serial Number: Not Specified
-      Asset Tag: Not Specified
-      Part Number: Not Specified
-      Rank: Unknown
-      Configured Clock Speed: Unknown
-      Minimum Voltage: Unknown
-      Maximum Voltage: Unknown
-      Configured Voltage: Unknown
-
-    Handle 0x1300, DMI type 19, 31 bytes
-    Memory Array Mapped Address
-      Starting Address: 0x00000000000
-      Ending Address: 0x000BFFFFFFF
-      Range Size: 3 GB
-      Physical Array Handle: 0x1000
-      Partition Width: 1
-
-    Handle 0x1301, DMI type 19, 31 bytes
-    Memory Array Mapped Address
-      Starting Address: 0x00100000000
-      Ending Address: 0x0013FFFFFFF
-      Range Size: 1 GB
-      Physical Array Handle: 0x1000
-      Partition Width: 1
-
-    Handle 0x2000, DMI type 32, 11 bytes
-    System Boot Information
-      Status: No errors detected
-
-    Handle 0x7F00, DMI type 127, 4 bytes
-    End Of Table
-    :return:
-    """
         out = self.ssh.run_command("dmidecode -s bios-version")
         self.results['firmware_version'] = out.replace('\n', '')
 
@@ -769,8 +476,8 @@ class DebianFacts(AbstractFacts):
     def get_route_table(self):
         out = self.ssh.run_command("netstat -rn |  tail -n+3")
 
+        self.results['route_table'] = []
         if out:
-            self.results['route_table'] = []
             # Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
             for line in out.splitlines():
                 data = line.split()
@@ -859,41 +566,6 @@ class DebianFacts(AbstractFacts):
 
     @LogManager.logging
     def get_firewall(self):
-        """
-    Chain INPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:21
-    2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8000
-    3    DROP       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8000
-    4    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80
-    5    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080
-
-    Chain OUTPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:21
-
-    Chain FORWARD (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80
-    2    ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080
-
-    Chain PREROUTING (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80 to:192.168.0.3
-    2    DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080 to:192.168.0.4
-
-    Chain INPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-
-    Chain OUTPUT (policy ACCEPT)
-    num  target     prot opt source               destination
-
-    Chain POSTROUTING (policy ACCEPT)
-    num  target     prot opt source               destination
-    1    SNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:80 to:192.168.0.2
-    2    SNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080 to:192.168.0.2
-    :return:
-    """
         chain_type = ['INPUT', 'OUTPUT', 'FORWARD', 'PREROUTING', 'POSTROUTING']
 
         commands = [
@@ -955,8 +627,8 @@ class DebianFacts(AbstractFacts):
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
+        self.results['locale'] = dict()
         if locale:
-            self.results['locale'] = dict()
 
             for line in locale.splitlines():
                 key, value = line.split("=")
@@ -966,8 +638,8 @@ class DebianFacts(AbstractFacts):
     def get_env(self):
         env = self.ssh.run_command("env")
 
+        self.results['env'] = dict()
         if env:
-            self.results['env'] = dict()
 
             for line in env.splitlines():
                 key, value = line.split("=")
@@ -977,8 +649,8 @@ class DebianFacts(AbstractFacts):
     def get_lvm_info(self):
         vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
 
+        self.results['vgs'] = {}
         if vgs:
-            self.results['vgs'] = {}
             for vg in vgs.splitlines():
                 self.results['vgs'][vg] = dict(pvs=[], lvs=[])
 
@@ -1053,8 +725,8 @@ class DebianFacts(AbstractFacts):
     def get_fstab_info(self):
         fstab = self.ssh.run_command("cat /etc/fstab")
 
+        self.results['fstab'] = []
         if fstab:
-            self.results['fstab'] = []
             regex = re.compile('^\#')
             for line in fstab.splitlines():
                 if regex.match(line) or line in ['', '\n']:
@@ -1069,8 +741,8 @@ class DebianFacts(AbstractFacts):
     def get_daemon_list(self):
         out = self.ssh.run_command("systemctl list-unit-files")
 
+        self.results['daemon_list'] = {}
         if out:
-            self.results['daemon_list'] = {}
             for line in out.splitlines():
                 if 'STATE' in line:
                     continue
@@ -1083,8 +755,8 @@ class DebianFacts(AbstractFacts):
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")
 
+        self.results['security'] = {"password": dict()}
         if out:
-            self.results['security'] = {"password": dict()}
             for line in out.splitlines():
 
                 regex = re.compile('^\#')
