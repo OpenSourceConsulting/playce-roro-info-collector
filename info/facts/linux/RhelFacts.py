@@ -31,27 +31,27 @@ class RhelFacts(AbstractFacts):
 
     def execute(self):
         try:
-            # self.get_hostname()
-            # self.get_cpu_facts()
-            # self.get_memory_facts()
-            # self.get_kernel()
-            # self.get_bitmode()
-            # self.get_dmi_facts()
-            # self.get_interfaces_info()
-            # self.get_vgs_facts()
-            # self.get_users()
-            # self.get_groups()
-            # self.get_password_of_users()
-            # self.get_ulimits()
-            # self.get_crontabs()
-            # # self.get_default_interfaces()
-            # self.get_df()
-            # # self.get_extra_partitions()
-            # self.get_ps_lists()
-            # self.get_kernel_parameters()
-            # self.get_timezone()
-            # self.get_route_table()
-            # self.get_firewall()
+            self.get_hostname()
+            self.get_cpu_facts()
+            self.get_memory_facts()
+            self.get_kernel()
+            self.get_bitmode()
+            self.get_dmi_facts()
+            self.get_interfaces_info()
+            self.get_vgs_facts()
+            self.get_users()
+            self.get_groups()
+            self.get_password_of_users()
+            self.get_ulimits()
+            self.get_crontabs()
+            # self.get_default_interfaces()
+            self.get_df()
+            # self.get_extra_partitions()
+            self.get_ps_lists()
+            self.get_kernel_parameters()
+            self.get_timezone()
+            self.get_route_table()
+            self.get_firewall()
             self.get_listen_port()
             self.get_locale()
             self.get_env()
@@ -549,22 +549,7 @@ class RhelFacts(AbstractFacts):
                     listen_port.append(port_info)
 
         out = self.ssh.run_command("netstat -nap --ip -6 | tail -n+3 | grep ESTABLISHED")
-        out = '''
-        tcp        0      0 192.168.4.10:8080       192.168.4.21:33220      ESTABLISHED 6774/java\n
-        tcp        0      0 192.168.4.10:80         192.168.0.147:64099     ESTABLISHED 1374/nginx: worker\n
-        tcp        0      0 127.0.0.1:57290         127.0.0.1:8080          ESTABLISHED 1374/nginx: worker\n
-        tcp        0      0 192.168.4.10:22         192.168.4.60:43946      ESTABLISHED 32438/sshd: wasup [\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.12:40820      ESTABLISHED 6774/java\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.11:60628      ESTABLISHED 6774/java\n
-        tcp        0      0 192.168.4.10:59584      192.168.4.10:8080       ESTABLISHED 3893/java\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.22:55540      ESTABLISHED 6774/java\n
-        tcp        0   1262 127.0.0.1:3306          127.0.0.1:38516         ESTABLISHED -\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.14:36940      ESTABLISHED 6774/java\n
-        tcp        0      0 127.0.0.1:8080          127.0.0.1:57290         ESTABLISHED 6774/java\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.13:48136      ESTABLISHED 6774/java\n
-        tcp        0      0 192.168.4.10:8080       192.168.4.10:59584      ESTABLISHED 6774/java\n
-        tcp        0     11 127.0.0.1:3306          127.0.0.1:38518         ESTABLISHED -\n
-        '''
+        
         if out:
             any_to_local = []
             local_to_any = []
@@ -574,12 +559,15 @@ class RhelFacts(AbstractFacts):
             }
             self.results['port_list']['established'] = estab_port
             for line in out.splitlines():
-
+                print line
                 data = line.split()
 
                 l_addr, l_port = data[3].rsplit(':', 1)
                 f_addr, f_port = data[4].rsplit(':', 1)
-                pid, p_name = data[6].rsplit('/', 1)
+                if data[6] == '-':
+                    pid = p_name = "-"
+                else:
+                    pid, p_name = data[6].rsplit('/', 1)
 
                 if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
                     continue

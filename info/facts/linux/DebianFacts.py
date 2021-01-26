@@ -508,7 +508,10 @@ class DebianFacts(AbstractFacts):
 
                 l_addr, l_port = data[3].rsplit(':', 1)
                 f_addr, f_port = data[4].rsplit(':', 1)
-                pid, p_name = data[6].rsplit('/', 1)
+                if data[6] == '-':
+                    pid = p_name = "-"
+                else:
+                    pid, p_name = data[6].rsplit('/', 1)
 
                 if l_addr.count(':') < 4:
                     port_info = {
