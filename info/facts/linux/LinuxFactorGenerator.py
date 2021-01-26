@@ -17,7 +17,10 @@ class LinuxFactorGenerator:
         LogManager.set_logging(params.get('logDir'))
         self.ssh = SshBase()
         self.ssh.connect(params)
+
         os_release = self.get_distribution_Linux()
+
+        self.ssh.close()
 
         if 'CentOS' in os_release or 'Red Hat' in os_release or 'AMI' in os_release:
             self.factor = RhelFacts(params, os_release)

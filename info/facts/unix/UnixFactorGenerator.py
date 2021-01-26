@@ -19,6 +19,7 @@ class UnixFactorGenerator:
         self.ssh.connect(params)
         os_release = self.get_distribution_Unix()
 
+        self.ssh.close()
         if 'AIX' in os_release:
             self.factor = AixFacts(params, os_release)
         else:
