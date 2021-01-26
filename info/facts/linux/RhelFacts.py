@@ -549,7 +549,7 @@ class RhelFacts(AbstractFacts):
                     listen_port.append(port_info)
 
         out = self.ssh.run_command("netstat -nap --ip -6 | tail -n+3 | grep ESTABLISHED")
-        
+
         if out:
             any_to_local = []
             local_to_any = []
@@ -559,7 +559,6 @@ class RhelFacts(AbstractFacts):
             }
             self.results['port_list']['established'] = estab_port
             for line in out.splitlines():
-                print line
                 data = line.split()
 
                 l_addr, l_port = data[3].rsplit(':', 1)
