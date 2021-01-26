@@ -65,18 +65,18 @@ class RhelFacts(AbstractFacts):
             self.get_login_def()
         except Exception as err:
             LogManager.logger.error(err)
-
         finally:
             self.make_system_summary()
             self.facts['results'] = self.results
+            self.ssh.close()
             return self.results
 
-    @LogManager.logging
+    
     def get_hostname(self):
         out = self.ssh.run_command("uname -n")
         self.results['hostname'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_cpu_facts(self):
         lscpu = self.ssh.run_command("lscpu")
 
@@ -86,7 +86,7 @@ class RhelFacts(AbstractFacts):
                 key, value = line.split(":")
                 self.results['cpu'][key] = value.lstrip()
 
-    @LogManager.logging
+    
     def get_memory_facts(self):
         self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
         out = self.ssh.run_command("vmstat -s")
@@ -105,17 +105,17 @@ class RhelFacts(AbstractFacts):
                 swapfree_mb = int(data[0]) // 1024
                 self.results['memory']["swapfree_mb"] = swapfree_mb
 
-    @LogManager.logging
+    
     def get_kernel(self):
         out = self.ssh.run_command("uname -r")
         self.results['kernel'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_bitmode(self):
         out = self.ssh.run_command("uname -m")
         self.results['architecture'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_df(self):
         out = self.ssh.run_command("df -Tm")
 
@@ -127,7 +127,7 @@ class RhelFacts(AbstractFacts):
                     pt = line.split()
                     self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
 
-    @LogManager.logging
+    
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc', '/opt', '/admin',
                            '/var/adm/ras/livedump']
@@ -148,7 +148,7 @@ class RhelFacts(AbstractFacts):
         #       self.results['extra_partitions'][data[6]] = \
         #         dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'True')
 
-    @LogManager.logging
+    
     def get_vgs_facts(self):
         out = self.ssh.run_command("pvs | tail -1")
         self.results['vgs'] = {}
@@ -164,7 +164,7 @@ class RhelFacts(AbstractFacts):
                     'p_free': vg[5]
                 }
 
-    @LogManager.logging
+    
     def get_users(self):
         # List of users excepted
         out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
@@ -179,14 +179,20 @@ class RhelFacts(AbstractFacts):
                     profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*profile")
                     rc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*rc")
 
+                    all_files = ""
+                    if profile:
+                        all_files += profile
+                    if rc:
+                        all_files += rc
+
                     self.results['users'][user[0]] = {'uid': user[2],
                                                       'gid': user[3],
                                                       'homedir': user[5],
                                                       'shell': user[6],
-                                                      'profile': profile + rc
+                                                      'profile': all_files
                                                       }
 
-    @LogManager.logging
+    
     def get_groups(self):
         # List of groups excepted
 
@@ -203,7 +209,7 @@ class RhelFacts(AbstractFacts):
                                                         'users': group[3].split(',')
                                                         }
 
-    @LogManager.logging
+    
     def get_password_of_users(self):
         self.results['shadow'] = {}
         out = self.ssh.run_command("cat /etc/shadow")
@@ -214,7 +220,7 @@ class RhelFacts(AbstractFacts):
                 if user[1] != '*' and user[1] != '!!':
                     self.results['shadow'][user[0]] = user[1]
 
-    @LogManager.logging
+    
     def get_ulimits(self):
         user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
 
@@ -235,7 +241,7 @@ class RhelFacts(AbstractFacts):
             except self.ssh.ShellError:
                 print("Dump command executing error!!")
 
-    @LogManager.logging
+    
     def get_crontabs(self):
         self.results['crontabs'] = {}
         out = self.ssh.run_command("find /var/spool/cron  -type f")
@@ -267,7 +273,7 @@ class RhelFacts(AbstractFacts):
                         self.results['NICs']['v6']['gateway'] = words[2]
                         self.results['NICs']['v6']['interface'] = words[line.index("dev") + 1]
 
-    @LogManager.logging
+    
     def get_interfaces_info(self):
         interfaces = {}
         current_if = {}
@@ -385,7 +391,7 @@ class RhelFacts(AbstractFacts):
         # a bad idea - but you can override it in your subclass
         pass
 
-    @LogManager.logging
+    
     def get_ps_lists(self):
         out = self.ssh.run_command("ps -ef | grep -v ps")
 
@@ -410,7 +416,7 @@ class RhelFacts(AbstractFacts):
                     self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
                     # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
 
-    @LogManager.logging
+    
     def get_kernel_parameters(self):
         out = self.ssh.run_command("sysctl -a")
 
@@ -428,28 +434,38 @@ class RhelFacts(AbstractFacts):
                 else:
                     self.results['kernel_parameters'][key] = value.strip()
 
-    @LogManager.logging
+    
     def get_dmi_facts(self):
         out = self.ssh.run_command("dmidecode -s bios-version")
-        self.results['firmware_version'] = out.replace('\n', '')
+        if out:
+            self.results['firmware_version'] = out.replace('\n', '')
+        else:
+            self.results['firmware_version'] = ""
 
         out = self.ssh.run_command("dmidecode -s system-serial-number")
-        self.results['product_serial'] = out.replace('\n', '')
+
+        if out:
+            self.results['product_serial'] = out.replace('\n', '')
+        else:
+            self.results['product_serial'] = ""
 
         out = self.ssh.run_command("dmidecode -s processor-manufacturer")
-        self.results['product_name'] = ''.join(sorted(set(out.replace('\n', '')), key=out.index))
 
-    @LogManager.logging
+        if out:
+            self.results['product_name'] = ''.join(sorted(set(out.replace('\n', '')), key=out.index))
+        else:
+            self.results['product_name'] = ""
+    
     def get_timezone(self):
         out = self.ssh.run_command("timedatectl | grep 'Time zone'")
 
-        if len(out) > 1:
+        if out and len(out) > 1:
             self.results['timezone'] = out.split(':')[1].strip().replace('\n', '')
         else:
             out = self.ssh.run_command("cat /etc/sysconfig/clock | grep ZONE")
             self.results['timezone'] = out.split('=')[1].strip().replace('\n', '')
 
-    @LogManager.logging
+    
     def get_route_table(self):
         out = self.ssh.run_command("netstat -rn |  tail -n+3")
 
@@ -505,7 +521,7 @@ class RhelFacts(AbstractFacts):
         #
         #     self.results['route_table']['list'].append(info)
 
-    @LogManager.logging
+    
     def get_listen_port(self):
         self.results['port_list'] = {
             'listen': [],
@@ -576,7 +592,7 @@ class RhelFacts(AbstractFacts):
                         "name": p_name,
                     })
 
-    @LogManager.logging
+    
     def get_firewall(self):
         commands = [
             'iptables -L --line-number -n',
@@ -623,7 +639,7 @@ class RhelFacts(AbstractFacts):
 
         cur_chain[type][data[0]] = info
 
-    @LogManager.logging
+    
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
@@ -634,7 +650,7 @@ class RhelFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['locale'][key] = re.sub('"', '', value)
 
-    @LogManager.logging
+    
     def get_env(self):
         self.results['env'] = dict()
         env = self.ssh.run_command("env")
@@ -645,7 +661,7 @@ class RhelFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['env'][key] = value
 
-    @LogManager.logging
+    
     def get_lvm_info(self):
         vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
 
@@ -721,7 +737,7 @@ class RhelFacts(AbstractFacts):
     def get_fs_info(self):
         None
 
-    @LogManager.logging
+    
     def get_fstab_info(self):
         fstab = self.ssh.run_command("cat /etc/fstab")
 
@@ -737,7 +753,7 @@ class RhelFacts(AbstractFacts):
                     dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
                 )
 
-    @LogManager.logging
+    
     def get_daemon_list(self):
         self.results['daemon_list'] = {}
         version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
@@ -767,7 +783,7 @@ class RhelFacts(AbstractFacts):
                     else:
                         self.results['daemon_list'][m.group(2)] = "unknown"
 
-    @LogManager.logging
+    
     def get_security_info(self):
         out = self.ssh.run_command("cat /etc/login.defs")
 
@@ -782,7 +798,7 @@ class RhelFacts(AbstractFacts):
                 key, value = line.split()
                 self.results['security']["password"][key] = value
 
-    @LogManager.logging
+    
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
         self.results['dns'] = []
@@ -797,7 +813,7 @@ class RhelFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
-    @LogManager.logging
+    
     def get_login_def(self):
         out = self.ssh.run_command("cat /etc/login.defs")
         self.results['def_info'] = {}

@@ -8,12 +8,6 @@ class LogManager(object):
 
     @classmethod
     def set_logging(cls, log_dir):
-        '''
-                create and set logger object
-
-                :param log_dir:
-                :return:
-                '''
         if not log_dir:
             log_dir = './assessments/logs'
 
@@ -22,7 +16,7 @@ class LogManager(object):
 
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                            datefmt='%m-%d %H:%M',
+                            datefmt='%m-%d %H:%M:%S',
                             filename=os.path.join(log_dir,
                                                   os.path.splitext(os.path.basename(__file__))[0] + 'assessment.log'),
                             filemode='a')
@@ -36,8 +30,10 @@ class LogManager(object):
 
         def inner(*args, **kwargs):
             result = function(*args, **kwargs)
-            cls.logger.debug("Finished {} with err :{}".format(function.__name__, result))
-            return result
+            if result:
+                cls.logger.debug("Execute command : {}".format(args[1]))
+                cls.logger.debug("result : \n{}".format(result))
+                return result
 
         return inner
 

@@ -61,25 +61,25 @@ class AixFacts(AbstractFacts):
             self.get_login_def()
         except Exception as err:
             LogManager.logger.error(err)
-
         finally:
             self.make_system_summary()
             self.facts["results"] = self.results
+            self.ssh.close()
             return self.results
 
-    @LogManager.logging
+    
     def get_distribution_AIX(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
 
-    @LogManager.logging
+    
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
         self.results['hostname'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_cpu_facts(self):
         self.results['processor'] = []
 
@@ -106,7 +106,7 @@ class AixFacts(AbstractFacts):
             data = out.split(' ')
             self.results['processor_cores'] = int(data[1])
 
-    @LogManager.logging
+    
     def get_memory_facts(self):
         pagesize = 4096
         out = self.ssh.run_command("/usr/bin/vmstat -v")
@@ -136,7 +136,7 @@ class AixFacts(AbstractFacts):
             self.results['memory']['swaptotal_mb'] = swaptotal_mb
             self.results['memory']['swapfree_mb'] = swapfree_mb
 
-    @LogManager.logging
+    
     def get_kernel(self):
         out = self.ssh.run_command("lslpp -l | grep bos.mp")
 
@@ -145,12 +145,12 @@ class AixFacts(AbstractFacts):
 
         self.results['kernel'] = data[1]
 
-    @LogManager.logging
+    
     def get_bitmode(self):
         out = self.ssh.run_command("getconf KERNEL_BITMODE")
         self.results['architecture'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_dmi_facts(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
         data = out.split()
@@ -167,7 +167,7 @@ class AixFacts(AbstractFacts):
                 if 'System Model' in line:
                     self.results['product_name'] = data[1].strip()
 
-    @LogManager.logging
+    
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
@@ -182,7 +182,7 @@ class AixFacts(AbstractFacts):
                                                                  pt[0]), size=pt[1],
                                                              free=pt[2])
 
-    @LogManager.logging
+    
     def get_fs_type(self, device):
         short_device_name = device.split('/')[2]
 
@@ -193,7 +193,7 @@ class AixFacts(AbstractFacts):
             if re.match(("^%s" % short_device_name), line):
                 return line.split()[1]
 
-    @LogManager.logging
+    
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc',
                            '/opt', '/admin', '/var/adm/ras/livedump']
@@ -219,7 +219,7 @@ class AixFacts(AbstractFacts):
                     else:
                         self.results['extra_partitions'][data[6]].append(partInfo)
 
-    @LogManager.logging
+    
     def get_vgs_facts(self):
         """
         Get vg and pv Facts
@@ -262,7 +262,7 @@ class AixFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)].append(pv_info)
 
-    @LogManager.logging
+    
     def get_users(self):
         # List of users excepted
         except_users = ['daemon', 'bin', 'sys', 'adm', 'uucp', 'guest', 'nobody',
@@ -289,7 +289,7 @@ class AixFacts(AbstractFacts):
                                                       'profile': profile + kshrc
                                                       }
 
-    @LogManager.logging
+    
     def get_groups(self):
         # List of groups excepted
         except_groups = ['root', 'daemon', 'bin', 'sys', 'adm', 'uucp', 'guest',
@@ -309,7 +309,7 @@ class AixFacts(AbstractFacts):
                                                         'users': group[3].split(',')
                                                         }
 
-    @LogManager.logging
+    
     def get_password_of_users(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/passwd|egrep ':|password' | sed 's/password = //g' | tr -d '\t '")
@@ -322,7 +322,7 @@ class AixFacts(AbstractFacts):
                 if user[1] != '*':
                     self.results['shadow'][user[0]] = user[1]
 
-    @LogManager.logging
+    
     def get_ulimits(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/limits | egrep -v '^\*|^$'")
@@ -340,7 +340,7 @@ class AixFacts(AbstractFacts):
                     value = line.split(' = ')
                     self.results['ulimits'][user[0]][value[0]] = value[1]
 
-    @LogManager.logging
+    
     def get_crontabs(self):
         out = self.ssh.run_command(
             "/usr/bin/find /var/spool/cron/crontabs -type file")
@@ -350,7 +350,7 @@ class AixFacts(AbstractFacts):
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
                 self.results['crontabs'][line] = out
 
-    @LogManager.logging
+    
     def get_default_interfaces(self):
         out = self.ssh.run_command('/usr/bin/netstat -nr')
 
@@ -501,13 +501,12 @@ class AixFacts(AbstractFacts):
 
 
 
-    @LogManager.logging
+    
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
         self.results['processes'] = {}
         if out:
-
             for line in out.splitlines():
                 if "<defunct>" in line:
                     continue
@@ -524,31 +523,25 @@ class AixFacts(AbstractFacts):
                         continue
                     self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
 
-    @LogManager.logging
+
+    
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
         self.results['kernel_parameters'] = {}
         if out:
-
             for line in out.splitlines():
                 data = line.split()
-                # self.results['kernel_parameters'][data[0]] = {
-                #   "value": data[1],
-                #   "description": " ".join(data[2:-1]),
-                #   "changable": data[-1]
-                # }
                 self.results['kernel_parameters'][data[0]] = data[1]
-                # self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
 
-    @LogManager.logging
+    
     def get_timezone(self):
         out = self.ssh.run_command(
             "/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
             self.results['timezone'] = re.sub(r'\n', '', out)
 
-    @LogManager.logging
+    
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
 
@@ -570,7 +563,7 @@ class AixFacts(AbstractFacts):
 
                 self.results['route_table'].append(info)
 
-    @LogManager.logging
+    
     def get_listen_port(self):
 
         self.results['port_list'] = {
@@ -653,7 +646,7 @@ class AixFacts(AbstractFacts):
                 else:
                     local_to_any.append(port_info)
 
-    @LogManager.logging
+    
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
@@ -664,7 +657,7 @@ class AixFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['locale'][key] = re.sub('"', '', value)
 
-    @LogManager.logging
+    
     def get_env(self):
         env = self.ssh.run_command("env")
 
@@ -675,7 +668,7 @@ class AixFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['env'][key] = value
 
-    @LogManager.logging
+    
     def get_lvm_info(self):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
@@ -722,7 +715,7 @@ class AixFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)]['lvs'].append(lv_info)
 
-    @LogManager.logging
+    
     def get_fs_info(self):
         fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
 
@@ -744,7 +737,7 @@ class AixFacts(AbstractFacts):
                     key, value = line.rsplit("=")
                     self.results['file_system'][fs][key.strip()] = value.strip()
 
-    @LogManager.logging
+    
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
 
@@ -788,7 +781,7 @@ class AixFacts(AbstractFacts):
 
                 self.results['daemon_list'].append(daemon)
 
-    @LogManager.logging
+    
     def get_security_info(self):
         self.results['security'] = {}
 
@@ -834,11 +827,11 @@ class AixFacts(AbstractFacts):
                         re.sub('\t', '', key): value.lstrip()
                     })
 
-    @LogManager.logging
+    
     def get_firewall(self):
         None
 
-    @LogManager.logging
+    
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
         self.results['dns'] = []
@@ -853,7 +846,7 @@ class AixFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
-    @LogManager.logging
+    
     def get_login_def(self):
         self.results['def_info'] = dict(uid_min="201", uid_max="60000", gid_min="201", gid_max="60000")
 

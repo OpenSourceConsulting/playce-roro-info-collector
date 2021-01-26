@@ -67,6 +67,7 @@ class DebianFacts(AbstractFacts):
         finally:
             self.make_system_summary()
             self.facts['results'] = self.results
+            self.ssh.close()
             return self.results
 
 

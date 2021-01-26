@@ -14,6 +14,7 @@ except ImportError:
 
 class LinuxFactorGenerator:
     def __init__(self, params):
+        LogManager.set_logging(params.get('logDir'))
         self.ssh = SshBase()
         self.ssh.connect(params)
         os_release = self.get_distribution_Linux()

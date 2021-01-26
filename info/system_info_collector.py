@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('-p', '--password', type=str, help='Password for user', required=True)
     parser.add_argument('-T', '--target', type=str, help='target os', required=True)
     parser.add_argument('-L', '--log_dir', type=str, help='log directory path', required=False)
+    parser.add_argument('-f', '--key-file', type=str, help='key file', required=False)
 
     # Array for all arguments passed to script
     args = parser.parse_args()

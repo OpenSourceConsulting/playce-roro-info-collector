@@ -14,10 +14,10 @@ else:
 class AbstractFacts(ABC):
 
     def __init__(self, params, isSudo=True):
+        # LogManager.set_logging(params.get('logDir'))
         self.ssh = SshBase(isSudo=isSudo)
         self.ssh.connect(params)
         self.facts = {"system_summary": dict()};
-        LogManager.set_logging(params.get('logDir'))
 
     @abc.abstractmethod
     def get_hostname(self): pass
@@ -109,7 +109,6 @@ class AbstractFacts(ABC):
     @abc.abstractmethod
     def get_login_def(self): pass
 
-    @LogManager.logging
     def get_results(self):
         r = json.dumps(self.facts, indent=2)
         print r

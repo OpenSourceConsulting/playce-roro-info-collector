@@ -59,6 +59,7 @@ class SshBase(object):
         except socket.error:
             raise ShellError('timeout trying to connect to host')
 
+    @LogManager.logging
     def connect(self, params, kickstart=True):
         host = params.get('host')
         port = params.get('port') or 22
@@ -80,8 +81,10 @@ class SshBase(object):
 
         self._connected = True
 
+    @LogManager.logging
     def run_command(self, command):
         # option = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no '
+
         if self.isSudo:
             stdin, stdout, stderr = self.ssh.exec_command('/usr/bin/sudo ' + command)
         else:
@@ -93,6 +96,9 @@ class SshBase(object):
 
             stdout = stdout.readlines()
             stderr = stderr.readlines()
+
+            stdout = [line.encode("utf-8") for line in stdout]
+            # stderr = [str(unicode(line, 'utf-8')) for line in stderr]
 
             for line in stdout:
                 all_out = all_out + line
@@ -116,7 +122,7 @@ class SshBase(object):
                   # Retrieve the next 1024 bytes
                   #all_err += stderr.channel.recv(1024)
       '''
-        except ShellError as e:
+        except Exception as e:
             LogManager.logger.error("Failed %s, command : [%s]" % str(e), command)
             sys.exit(3)
 
