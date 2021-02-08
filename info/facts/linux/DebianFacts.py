@@ -499,12 +499,15 @@ class DebianFacts(AbstractFacts):
             'listen': [],
             'established': {}
         }
-        out = self.ssh.run_command("netstat -nap --ip -6 | grep LISTEN")
+        out = self.ssh.run_command("netstat -nap | grep LISTEN")
         if out:
             listen_port = []
             self.results['port_list']['listen'] = listen_port
             for line in out.splitlines():
                 data = line.split()
+
+                if data[0] == 'unix':
+                    continue
 
                 l_addr, l_port = data[3].rsplit(':', 1)
                 f_addr, f_port = data[4].rsplit(':', 1)
@@ -523,7 +526,7 @@ class DebianFacts(AbstractFacts):
                     }
                     listen_port.append(port_info)
 
-        out = self.ssh.run_command("netstat -nap --ip -6 | tail -n+3 | grep ESTABLISHED")
+        out = self.ssh.run_command("netstat -nap | tail -n+3 | grep ESTABLISHED")
 
         if out:
             any_to_local = []
@@ -534,8 +537,10 @@ class DebianFacts(AbstractFacts):
             }
             self.results['port_list']['established'] = estab_port
             for line in out.splitlines():
-
                 data = line.split()
+
+                if data[0] == 'unix':
+                    continue
 
                 l_addr, l_port = data[3].rsplit(':', 1)
                 f_addr, f_port = data[4].rsplit(':', 1)
