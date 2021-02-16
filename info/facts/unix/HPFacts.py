@@ -67,19 +67,19 @@ class HPFacts(AbstractFacts):
             self.facts["results"] = self.results
             return self.results
 
-    @LogManager.logging
+    
     def get_distribution_AIX(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
 
-    @LogManager.logging
+    
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
         self.results['hostname'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_cpu_facts(self):
         self.results['processor'] = []
 
@@ -106,7 +106,7 @@ class HPFacts(AbstractFacts):
             data = out.split(' ')
             self.results['processor_cores'] = int(data[1])
 
-    @LogManager.logging
+    
     def get_memory_facts(self):
         pagesize = 4096
         out = self.ssh.run_command("/usr/bin/vmstat -v")
@@ -136,7 +136,7 @@ class HPFacts(AbstractFacts):
             self.results['memory']['swaptotal_mb'] = swaptotal_mb
             self.results['memory']['swapfree_mb'] = swapfree_mb
 
-    @LogManager.logging
+    
     def get_kernel(self):
         out = self.ssh.run_command("lslpp -l | grep bos.mp")
 
@@ -145,12 +145,12 @@ class HPFacts(AbstractFacts):
 
         self.results['kernel'] = data[1]
 
-    @LogManager.logging
+    
     def get_bitmode(self):
         out = self.ssh.run_command("getconf KERNEL_BITMODE")
         self.results['architecture'] = out.replace('\n', '')
 
-    @LogManager.logging
+    
     def get_dmi_facts(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
         data = out.split()
@@ -167,7 +167,7 @@ class HPFacts(AbstractFacts):
                 if 'System Model' in line:
                     self.results['product_name'] = data[1].strip()
 
-    @LogManager.logging
+    
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
@@ -182,7 +182,7 @@ class HPFacts(AbstractFacts):
                                                                  pt[0]), size=pt[1],
                                                              free=pt[2])
 
-    @LogManager.logging
+    
     def get_fs_type(self, device):
         short_device_name = device.split('/')[2]
 
@@ -193,7 +193,7 @@ class HPFacts(AbstractFacts):
             if re.match(("^%s" % short_device_name), line):
                 return line.split()[1]
 
-    @LogManager.logging
+    
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc',
                            '/opt', '/admin', '/var/adm/ras/livedump']
@@ -218,7 +218,7 @@ class HPFacts(AbstractFacts):
                     else:
                         self.results['extra_partitions'][data[6]].append(partInfo)
 
-    @LogManager.logging
+    
     def get_vgs_facts(self):
         """
         Get vg and pv Facts
@@ -261,7 +261,7 @@ class HPFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)].append(pv_info)
 
-    @LogManager.logging
+    
     def get_users(self):
         # List of users excepted
         except_users = ['daemon', 'bin', 'sys', 'adm', 'uucp', 'guest', 'nobody',
@@ -288,7 +288,7 @@ class HPFacts(AbstractFacts):
                                                       'profile': profile + kshrc
                                                       }
 
-    @LogManager.logging
+    
     def get_groups(self):
         # List of groups excepted
         except_groups = ['root', 'daemon', 'bin', 'sys', 'adm', 'uucp', 'guest',
@@ -308,7 +308,7 @@ class HPFacts(AbstractFacts):
                                                         'users': group[3].split(',')
                                                         }
 
-    @LogManager.logging
+    
     def get_password_of_users(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/passwd|egrep ':|password' | sed 's/password = //g' | tr -d '\t '")
@@ -321,7 +321,7 @@ class HPFacts(AbstractFacts):
                 if user[1] != '*':
                     self.results['shadow'][user[0]] = user[1]
 
-    @LogManager.logging
+    
     def get_ulimits(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/limits | egrep -v '^\*|^$'")
@@ -341,7 +341,7 @@ class HPFacts(AbstractFacts):
                     value = line.split(' = ')
                     self.results['ulimits'][user[0]][value[0]] = value[1]
 
-    @LogManager.logging
+    
     def get_crontabs(self):
         out = self.ssh.run_command(
             "/usr/bin/find /var/spool/cron/crontabs -type file")
@@ -351,7 +351,7 @@ class HPFacts(AbstractFacts):
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
                 self.results['crontabs'][line] = out
 
-    @LogManager.logging
+    
     def get_default_interfaces(self):
         out = self.ssh.run_command('/usr/bin/netstat -nr')
 
@@ -502,7 +502,7 @@ class HPFacts(AbstractFacts):
 
         self.results['interfaces'] = interfaces
 
-    @LogManager.logging
+    
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
@@ -525,7 +525,7 @@ class HPFacts(AbstractFacts):
                         continue
                     self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
 
-    @LogManager.logging
+    
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
@@ -542,14 +542,14 @@ class HPFacts(AbstractFacts):
                 self.results['kernel_parameters'][data[0]] = data[1]
                 # self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
 
-    @LogManager.logging
+    
     def get_timezone(self):
         out = self.ssh.run_command(
             "/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
             self.results['timezone'] = re.sub(r'\n', '', out)
 
-    @LogManager.logging
+    
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
 
@@ -570,7 +570,7 @@ class HPFacts(AbstractFacts):
                 }
 
                 self.results['route_table'].append(info)
-    @LogManager.logging
+    
     def get_listen_port(self):
 
         self.results['port_list'] = {
@@ -654,7 +654,7 @@ class HPFacts(AbstractFacts):
                     local_to_any.append(port_info)
 
 
-    @LogManager.logging
+    
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
@@ -665,7 +665,7 @@ class HPFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['locale'][key] = re.sub('"', '', value)
 
-    @LogManager.logging
+    
     def get_env(self):
         env = self.ssh.run_command("env")
 
@@ -676,7 +676,7 @@ class HPFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['env'][key] = value
 
-    @LogManager.logging
+    
     def get_lvm_info(self):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
@@ -723,7 +723,7 @@ class HPFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)]['lvs'].append(lv_info)
 
-    @LogManager.logging
+    
     def get_fs_info(self):
         fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
 
@@ -745,7 +745,7 @@ class HPFacts(AbstractFacts):
                     key, value = line.rsplit("=")
                     self.results['file_system'][fs][key.strip()] = value.strip()
 
-    @LogManager.logging
+    
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
 
@@ -789,7 +789,6 @@ class HPFacts(AbstractFacts):
 
                 self.results['daemon_list'].append(daemon)
 
-    @LogManager.logging
     def get_security_info(self):
         self.results['security'] = {}
 
@@ -835,11 +834,9 @@ class HPFacts(AbstractFacts):
                         re.sub('\t', '', key): value.lstrip()
                     })
 
-    @LogManager.logging
     def get_firewall(self):
         None
 
-    @LogManager.logging
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
         self.results['dns'] = []
@@ -855,10 +852,22 @@ class HPFacts(AbstractFacts):
                     self.results['dns'].append(ns)
 
 
-    @LogManager.logging
     def get_login_def(self):
         self.results['def_info'] = dict(uid_min=101, uid_max=60000, gid_min=101, gid_max=60000)
 
+    def get_uptime(self):
+        out = self.ssh.run_command("""
+        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
+        $total=((($1*24+$2)*60+$3)*60);
+        $now=time();
+        $now-=$total;
+        $now=localtime($now);
+        print $now;'
+        """)
+        self.results['uptime'] = None
+        if out:
+            self.results['uptime'] = out
+            
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')
 

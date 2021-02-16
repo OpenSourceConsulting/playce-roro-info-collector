@@ -21,9 +21,9 @@ def get_args():
     parser.add_argument('-H', '--host', type=str, help='Source host name or IP', required=True)
     parser.add_argument('-P', '--port', type=str, help='Source host SSH Port', required=True)
     parser.add_argument('-u', '--username', type=str, help='User of Source Server', required=True)
-    parser.add_argument('-p', '--password', type=str, help='Password for user', required=True)
+    parser.add_argument('-p', '--password', type=str, help='Password for user', required=False)
     parser.add_argument('-T', '--target', type=str, help='target os', required=True)
-    parser.add_argument('-L', '--log_dir', type=str, help='log directory path', required=False)
+    parser.add_argument('-L', '--log-dir', type=str, help='log directory path', required=False)
     parser.add_argument('-f', '--key-file', type=str, help='key file', required=False)
 
     # Array for all arguments passed to script
@@ -41,6 +41,8 @@ def set_params(args):
     params['password'] = args.password
     params['target'] = args.target
     params['logDir'] = args.log_dir
+    if args.key_file != 'null':
+        params['ssh_keyfile'] = args.key_file
 
     return params
 

@@ -59,6 +59,7 @@ class AixFacts(AbstractFacts):
             self.get_timezone()
             self.get_firewall()
             self.get_login_def()
+            self.get_uptime()
         except Exception as err:
             LogManager.logger.error(err)
         finally:
@@ -855,6 +856,19 @@ class AixFacts(AbstractFacts):
     
     def get_login_def(self):
         self.results['def_info'] = dict(uid_min="201", uid_max="60000", gid_min="201", gid_max="60000")
+
+    def get_uptime(self):
+        out = self.ssh.run_command("""
+        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
+        $total=((($1*24+$2)*60+$3)*60);
+        $now=time();
+        $now-=$total;
+        $now=localtime($now);
+        print $now;'
+        """)
+        self.results['uptime'] = None
+        if out:
+            self.results['uptime'] = out
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')

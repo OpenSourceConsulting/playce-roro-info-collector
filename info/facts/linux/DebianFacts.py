@@ -61,6 +61,7 @@ class DebianFacts(AbstractFacts):
             self.get_daemon_list()
             self.get_security_info()
             self.get_login_def()
+            self.get_uptime()
         except Exception as err:
             LogManager.logger.error(err)
 
@@ -69,7 +70,6 @@ class DebianFacts(AbstractFacts):
             self.facts['results'] = self.results
             self.ssh.close()
             return self.results
-
 
     def get_distribution_Linux(self):
         """
@@ -337,11 +337,9 @@ class DebianFacts(AbstractFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-
-
     def parse_interface_line(self, words):
         device = words[1][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown', 'script' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway': 'unknown', 'script': 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -571,7 +569,6 @@ class DebianFacts(AbstractFacts):
                         "pid": pid,
                         "name": p_name,
                     })
-
 
     @LogManager.logging
     def get_firewall(self):
@@ -806,6 +803,19 @@ class DebianFacts(AbstractFacts):
             if data[0] in targetField:
                 self.results['def_info'][data[0].lower()] = data[1]
 
+    def get_uptime(self):
+        out = self.ssh.run_command("""
+        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
+        $total=((($1*24+$2)*60+$3)*60);
+        $now=time();
+        $now-=$total;
+        $now=localtime($now);
+        print $now;'
+        """)
+        self.results['uptime'] = None
+        if out:
+            self.results['uptime'] = out
+
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('ip route | grep default')
 
@@ -821,7 +831,7 @@ class DebianFacts(AbstractFacts):
         type = self.ssh.run_command('cat /etc/*-release | grep DISTRIB_ID | cut -f2 -d "="')
         if 'Ubuntu' in type:
             version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
-            version = float(version.replace('\"',''))
+            version = float(version.replace('\"', ''))
             if version >= 17.10:
                 filePath = "/etc/netplan/*.yaml"
             elif version <= 17.04:
@@ -834,7 +844,7 @@ class DebianFacts(AbstractFacts):
 
     def get_bonding(self):
         rootPath = '/etc/sysconfig/network-scripts'
-        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d '-'' % rootPath)
+        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d ' - '' % rootPath)
 
         if list:
             self.results['bonding'] = {}

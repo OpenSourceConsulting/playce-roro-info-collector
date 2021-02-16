@@ -62,27 +62,3 @@ class LogManager(object):
         except Exception as e:
             cls.logger.error("Error : RUN (%s)" % str(e))
 
-    # @staticmethod
-    # def run_subprocess(cmd1, log_enabled=True):
-    #     '''
-    #     Execute linux system command and logging results
-    #
-    #     :param cmd1:
-    #     :param log_enabled:
-    #     :return:
-    #     '''
-    #
-    #     try:
-    #         proc = subprocess.Popen(cmd1, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #         (out, err) = proc.communicate()
-    #
-    #         if out and log_enabled:
-    #             LogManager.logger.info(out)
-    #
-    #         if err:
-    #             LogManager.logger.error(err)
-    #
-    #         return out, err
-    #
-    #     except Exception as e:
-    #         LogManager.logger.error("Error : RUN (%s)" % str(e))
