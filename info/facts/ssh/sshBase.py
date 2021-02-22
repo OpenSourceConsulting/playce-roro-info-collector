@@ -86,7 +86,7 @@ class SshBase(object):
         # option = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no '
 
         if self.isSudo:
-            stdin, stdout, stderr = self.ssh.exec_command('/usr/bin/sudo ' + command)
+            stdin, stdout, stderr = self.ssh.exec_command("/usr/bin/sudo " + command)
         else:
             stdin, stdout, stderr = self.ssh.exec_command(command)
 

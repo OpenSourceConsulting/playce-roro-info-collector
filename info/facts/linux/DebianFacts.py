@@ -201,8 +201,8 @@ class DebianFacts(AbstractFacts):
 
                 # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
                 if not user[0] in except_users:
-                    profile = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*profile")
-                    kshrc = self.ssh.run_command("/usr/bin/cat " + user[5] + "/.*rc")
+                    profile = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*profile\'")
+                    kshrc = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*rc\'")
 
                     self.results['users'][user[0]] = {'uid': user[2],
                                                       'gid': user[3],

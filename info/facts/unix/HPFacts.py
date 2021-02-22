@@ -68,7 +68,7 @@ class HPFacts(AbstractFacts):
             return self.results
 
     
-    def get_distribution_AIX(self):
+    def get_distribution_HP(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
