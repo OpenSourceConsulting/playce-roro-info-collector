@@ -1,6 +1,8 @@
 import re
 import struct
 import socket
+import datetime
+import time
 
 from info.facts.log.LogManager import LogManager
 from info.facts.AbstractFacts import AbstractFacts
@@ -227,8 +229,9 @@ class RhelFacts(AbstractFacts):
                         key = line[0:line.index("(")].strip()
                         value = line[line.index("("):len(line)].split()
                         self.results['ulimits'][user][key] = value[len(value) - 1]
-            except self.ssh.ShellError:
-                print("Dump command executing error!!")
+            except Exception as e:
+                print("Error with ", e.message)
+                self.results['ulimits'][user] = {}
 
     def get_crontabs(self):
         self.results['crontabs'] = {}
@@ -811,17 +814,14 @@ class RhelFacts(AbstractFacts):
                 self.results['def_info'][data[0].lower()] = data[1]
 
     def get_uptime(self):
-        out = self.ssh.run_command("""
-            uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
-            $total=((($1*24+$2)*60+$3)*60);
-            $now=time();
-            $now-=$total;
-            $now=localtime($now);
-            print $now;'
-            """)
+        out = self.ssh.run_command(
+            'uptime | awk -F , \'{split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}\' | tr -d "\n"')
+
         self.results['uptime'] = None
         if out:
-            self.results['uptime'] = out
+            day, hour, sec = out.split()
+            timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
+            self.results['uptime'] = time.time() - timestamp
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('ip route | grep default')

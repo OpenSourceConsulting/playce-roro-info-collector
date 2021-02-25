@@ -2,6 +2,8 @@
 import re
 import socket
 import struct
+import datetime
+import time
 from info.facts.log.LogManager import LogManager
 from info.facts.AbstractFacts import AbstractFacts
 
@@ -24,7 +26,7 @@ class HPFacts(AbstractFacts):
 
     def __init__(self, params, release):
         AbstractFacts.__init__(self, params, isSudo=False)
-        self.results = { "family" : "hp-ux"}
+        self.results = {"family": "hp-ux"}
 
     def execute(self):
         try:
@@ -67,19 +69,16 @@ class HPFacts(AbstractFacts):
             self.facts["results"] = self.results
             return self.results
 
-    
     def get_distribution_HP(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
 
-    
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
         self.results['hostname'] = out.replace('\n', '')
 
-    
     def get_cpu_facts(self):
         self.results['processor'] = []
 
@@ -106,7 +105,6 @@ class HPFacts(AbstractFacts):
             data = out.split(' ')
             self.results['processor_cores'] = int(data[1])
 
-    
     def get_memory_facts(self):
         pagesize = 4096
         out = self.ssh.run_command("/usr/bin/vmstat -v")
@@ -136,7 +134,6 @@ class HPFacts(AbstractFacts):
             self.results['memory']['swaptotal_mb'] = swaptotal_mb
             self.results['memory']['swapfree_mb'] = swapfree_mb
 
-    
     def get_kernel(self):
         out = self.ssh.run_command("lslpp -l | grep bos.mp")
 
@@ -145,12 +142,10 @@ class HPFacts(AbstractFacts):
 
         self.results['kernel'] = data[1]
 
-    
     def get_bitmode(self):
         out = self.ssh.run_command("getconf KERNEL_BITMODE")
         self.results['architecture'] = out.replace('\n', '')
 
-    
     def get_dmi_facts(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
         data = out.split()
@@ -167,7 +162,6 @@ class HPFacts(AbstractFacts):
                 if 'System Model' in line:
                     self.results['product_name'] = data[1].strip()
 
-    
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
@@ -182,7 +176,6 @@ class HPFacts(AbstractFacts):
                                                                  pt[0]), size=pt[1],
                                                              free=pt[2])
 
-    
     def get_fs_type(self, device):
         short_device_name = device.split('/')[2]
 
@@ -193,7 +186,6 @@ class HPFacts(AbstractFacts):
             if re.match(("^%s" % short_device_name), line):
                 return line.split()[1]
 
-    
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc',
                            '/opt', '/admin', '/var/adm/ras/livedump']
@@ -213,12 +205,12 @@ class HPFacts(AbstractFacts):
                     self.results['extra_partitions'][data[6]].append(partInfo)
                 else:
                     if data[6] not in root_partitions:
-                        self.results['extra_partitions'][data[6]].append(dict(mount_point=data[0], type=data[1], lv_state=data[5],
-                             extra='True'))
+                        self.results['extra_partitions'][data[6]].append(
+                            dict(mount_point=data[0], type=data[1], lv_state=data[5],
+                                 extra='True'))
                     else:
                         self.results['extra_partitions'][data[6]].append(partInfo)
 
-    
     def get_vgs_facts(self):
         """
         Get vg and pv Facts
@@ -261,7 +253,6 @@ class HPFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)].append(pv_info)
 
-    
     def get_users(self):
         # List of users excepted
         except_users = ['daemon', 'bin', 'sys', 'adm', 'uucp', 'guest', 'nobody',
@@ -288,7 +279,6 @@ class HPFacts(AbstractFacts):
                                                       'profile': profile + kshrc
                                                       }
 
-    
     def get_groups(self):
         # List of groups excepted
         except_groups = ['root', 'daemon', 'bin', 'sys', 'adm', 'uucp', 'guest',
@@ -308,7 +298,6 @@ class HPFacts(AbstractFacts):
                                                         'users': group[3].split(',')
                                                         }
 
-    
     def get_password_of_users(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/passwd|egrep ':|password' | sed 's/password = //g' | tr -d '\t '")
@@ -321,7 +310,6 @@ class HPFacts(AbstractFacts):
                 if user[1] != '*':
                     self.results['shadow'][user[0]] = user[1]
 
-    
     def get_ulimits(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/limits | egrep -v '^\*|^$'")
@@ -341,7 +329,6 @@ class HPFacts(AbstractFacts):
                     value = line.split(' = ')
                     self.results['ulimits'][user[0]][value[0]] = value[1]
 
-    
     def get_crontabs(self):
         out = self.ssh.run_command(
             "/usr/bin/find /var/spool/cron/crontabs -type file")
@@ -351,7 +338,6 @@ class HPFacts(AbstractFacts):
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
                 self.results['crontabs'][line] = out
 
-    
     def get_default_interfaces(self):
         out = self.ssh.run_command('/usr/bin/netstat -nr')
 
@@ -372,7 +358,7 @@ class HPFacts(AbstractFacts):
     # AIX 'ifconfig -a' does not inform about MTU, so remove current_if['mtu'] here
     def parse_interface_line(self, words):
         device = words[0][0:-1]
-        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway' : 'unknown'}
+        current_if = {'device': device, 'ipv4': [], 'ipv6': [], 'gateway': 'unknown'}
         # current_if['flags'] = self.get_options(words[1])
         current_if['macaddress'] = 'unknown'  # will be overwritten later
         return current_if
@@ -502,7 +488,6 @@ class HPFacts(AbstractFacts):
 
         self.results['interfaces'] = interfaces
 
-    
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
@@ -525,7 +510,6 @@ class HPFacts(AbstractFacts):
                         continue
                     self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
 
-    
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
@@ -542,14 +526,12 @@ class HPFacts(AbstractFacts):
                 self.results['kernel_parameters'][data[0]] = data[1]
                 # self.results['kernel_parameters'][data[0].strip()] = data[1].strip()
 
-    
     def get_timezone(self):
         out = self.ssh.run_command(
             "/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
             self.results['timezone'] = re.sub(r'\n', '', out)
 
-    
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
 
@@ -570,7 +552,7 @@ class HPFacts(AbstractFacts):
                 }
 
                 self.results['route_table'].append(info)
-    
+
     def get_listen_port(self):
 
         self.results['port_list'] = {
@@ -653,8 +635,6 @@ class HPFacts(AbstractFacts):
                 else:
                     local_to_any.append(port_info)
 
-
-    
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
@@ -665,7 +645,6 @@ class HPFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['locale'][key] = re.sub('"', '', value)
 
-    
     def get_env(self):
         env = self.ssh.run_command("env")
 
@@ -676,7 +655,6 @@ class HPFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['env'][key] = value
 
-    
     def get_lvm_info(self):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
@@ -723,7 +701,6 @@ class HPFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)]['lvs'].append(lv_info)
 
-    
     def get_fs_info(self):
         fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
 
@@ -745,7 +722,6 @@ class HPFacts(AbstractFacts):
                     key, value = line.rsplit("=")
                     self.results['file_system'][fs][key.strip()] = value.strip()
 
-    
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
 
@@ -813,7 +789,7 @@ class HPFacts(AbstractFacts):
                         re.sub('\t', '', key): value.lstrip()
                     })
 
-        #Password policies
+        # Password policies
         out = self.ssh.run_command("cat /etc/security/user")
         if out:
             password = {}
@@ -851,23 +827,19 @@ class HPFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
-
     def get_login_def(self):
         self.results['def_info'] = dict(uid_min=101, uid_max=60000, gid_min=101, gid_max=60000)
 
     def get_uptime(self):
-        out = self.ssh.run_command("""
-        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
-        $total=((($1*24+$2)*60+$3)*60);
-        $now=time();
-        $now-=$total;
-        $now=localtime($now);
-        print $now;'
-        """)
+        out = self.ssh.run_command(
+            'uptime | awk -F , \'{split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}\' | tr -d "\n"')
+
         self.results['uptime'] = None
         if out:
-            self.results['uptime'] = out
-            
+            day, hour, sec = out.split()
+            timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
+            self.results['uptime'] = time.time() - timestamp
+
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')
 
@@ -880,14 +852,14 @@ class HPFacts(AbstractFacts):
                         return words[1]
 
     def get_mac_address(self, current_if):
-        out = self.ssh.run_command('entstat -d '+current_if['device']+' | egrep Hardware')
+        out = self.ssh.run_command('entstat -d ' + current_if['device'] + ' | egrep Hardware')
 
         if out:
             data = out.split(":", 1)
             return data[1].strip().replace(r'\n', '')
 
     def get_interface_type(self, current_if):
-        out = self.ssh.run_command('entstat -d '+current_if['device']+' | egrep Device')
+        out = self.ssh.run_command('entstat -d ' + current_if['device'] + ' | egrep Device')
 
         if out:
             data = out.split(":", 1)

@@ -1,6 +1,8 @@
 import re
 import struct
 import socket
+import datetime
+import time
 
 from info.facts.log.LogManager import LogManager
 from info.facts.AbstractFacts import AbstractFacts
@@ -202,13 +204,18 @@ class DebianFacts(AbstractFacts):
                 # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
                 if not user[0] in except_users:
                     profile = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*profile\'")
-                    kshrc = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*rc\'")
+                    rc = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*rc\'")
 
+                    all_files = ""
+                    if profile:
+                        all_files += profile
+                    if rc:
+                        all_files += rc
                     self.results['users'][user[0]] = {'uid': user[2],
                                                       'gid': user[3],
                                                       'homedir': user[5],
                                                       'shell': user[6],
-                                                      'profile': profile + kshrc
+                                                      'profile': all_files
                                                       }
 
     @LogManager.logging
@@ -804,17 +811,14 @@ class DebianFacts(AbstractFacts):
                 self.results['def_info'][data[0].lower()] = data[1]
 
     def get_uptime(self):
-        out = self.ssh.run_command("""
-        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
-        $total=((($1*24+$2)*60+$3)*60);
-        $now=time();
-        $now-=$total;
-        $now=localtime($now);
-        print $now;'
-        """)
+        out = self.ssh.run_command(
+            'uptime | awk -F , \'{split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}\' | tr -d "\n"')
+
         self.results['uptime'] = None
         if out:
-            self.results['uptime'] = out
+            day, hour, sec = out.split()
+            timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
+            self.results['uptime'] = time.time() - timestamp
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('ip route | grep default')

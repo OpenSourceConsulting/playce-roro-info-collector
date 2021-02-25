@@ -2,6 +2,8 @@
 import re
 import socket
 import struct
+import datetime
+import time
 from info.facts.log.LogManager import LogManager
 from info.facts.AbstractFacts import AbstractFacts
 
@@ -68,19 +70,16 @@ class AixFacts(AbstractFacts):
             self.ssh.close()
             return self.results
 
-    
     def get_distribution_AIX(self):
         out = self.ssh.run_command("/usr/bin/oslevel")
         data = out.split('.')
         self.results['distribution_version'] = data[0]
         self.results['distribution_release'] = data[1]
 
-    
     def get_hostname(self):
         out = self.ssh.run_command("/usr/bin/hostname")
         self.results['hostname'] = out.replace('\n', '')
 
-    
     def get_cpu_facts(self):
         self.results['processor'] = []
 
@@ -107,7 +106,6 @@ class AixFacts(AbstractFacts):
             data = out.split(' ')
             self.results['processor_cores'] = int(data[1])
 
-    
     def get_memory_facts(self):
         pagesize = 4096
         out = self.ssh.run_command("/usr/bin/vmstat -v")
@@ -137,7 +135,6 @@ class AixFacts(AbstractFacts):
             self.results['memory']['swaptotal_mb'] = swaptotal_mb
             self.results['memory']['swapfree_mb'] = swapfree_mb
 
-    
     def get_kernel(self):
         out = self.ssh.run_command("lslpp -l | grep bos.mp")
 
@@ -146,12 +143,10 @@ class AixFacts(AbstractFacts):
 
         self.results['kernel'] = data[1]
 
-    
     def get_bitmode(self):
         out = self.ssh.run_command("getconf KERNEL_BITMODE")
         self.results['architecture'] = out.replace('\n', '')
 
-    
     def get_dmi_facts(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -El sys0 -a fwversion")
         data = out.split()
@@ -168,7 +163,6 @@ class AixFacts(AbstractFacts):
                 if 'System Model' in line:
                     self.results['product_name'] = data[1].strip()
 
-    
     def get_df(self):
         out = self.ssh.run_command("/usr/bin/df -m")
 
@@ -183,7 +177,6 @@ class AixFacts(AbstractFacts):
                                                                  pt[0]), size=pt[1],
                                                              free=pt[2])
 
-    
     def get_fs_type(self, device):
         short_device_name = device.split('/')[2]
 
@@ -194,7 +187,6 @@ class AixFacts(AbstractFacts):
             if re.match(("^%s" % short_device_name), line):
                 return line.split()[1]
 
-    
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc',
                            '/opt', '/admin', '/var/adm/ras/livedump']
@@ -220,7 +212,6 @@ class AixFacts(AbstractFacts):
                     else:
                         self.results['extra_partitions'][data[6]].append(partInfo)
 
-    
     def get_vgs_facts(self):
         """
         Get vg and pv Facts
@@ -263,7 +254,6 @@ class AixFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)].append(pv_info)
 
-    
     def get_users(self):
         # List of users excepted
         except_users = ['daemon', 'bin', 'sys', 'adm', 'uucp', 'guest', 'nobody',
@@ -296,7 +286,6 @@ class AixFacts(AbstractFacts):
                                                       'profile': all_files
                                                       }
 
-    
     def get_groups(self):
         # List of groups excepted
         except_groups = ['root', 'daemon', 'bin', 'sys', 'adm', 'uucp', 'guest',
@@ -316,7 +305,6 @@ class AixFacts(AbstractFacts):
                                                         'users': group[3].split(',')
                                                         }
 
-    
     def get_password_of_users(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/passwd|egrep ':|password' | sed 's/password = //g' | tr -d '\t '")
@@ -329,7 +317,6 @@ class AixFacts(AbstractFacts):
                 if user[1] != '*':
                     self.results['shadow'][user[0]] = user[1]
 
-    
     def get_ulimits(self):
         tmp_out = self.ssh.run_command(
             "/usr/bin/cat /etc/security/limits | egrep -v '^\*|^$'")
@@ -347,7 +334,6 @@ class AixFacts(AbstractFacts):
                     value = line.split(' = ')
                     self.results['ulimits'][user[0]][value[0]] = value[1]
 
-    
     def get_crontabs(self):
         out = self.ssh.run_command(
             "/usr/bin/find /var/spool/cron/crontabs -type file")
@@ -357,7 +343,6 @@ class AixFacts(AbstractFacts):
                 out = self.ssh.run_command('/usr/bin/cat ' + line)
                 self.results['crontabs'][line] = out
 
-    
     def get_default_interfaces(self):
         out = self.ssh.run_command('/usr/bin/netstat -nr')
 
@@ -506,9 +491,6 @@ class AixFacts(AbstractFacts):
                 else:
                     self.parse_unknown_line(words, current_if, ips)
 
-
-
-    
     def get_ps_lists(self):
         out = self.ssh.run_command("/usr/bin/ps -ef")
 
@@ -530,8 +512,6 @@ class AixFacts(AbstractFacts):
                         continue
                     self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
 
-
-    
     def get_kernel_parameters(self):
         out = self.ssh.run_command("/usr/sbin/lsattr -E -l sys0")
 
@@ -541,14 +521,12 @@ class AixFacts(AbstractFacts):
                 data = line.split()
                 self.results['kernel_parameters'][data[0]] = data[1]
 
-    
     def get_timezone(self):
         out = self.ssh.run_command(
             "/usr/bin/env | grep TZ | awk -F '=' '{print $2}'")
         if out:
             self.results['timezone'] = re.sub(r'\n', '', out)
 
-    
     def get_route_table(self):
         out = self.ssh.run_command("/usr/bin/netstat -rn")
 
@@ -570,7 +548,6 @@ class AixFacts(AbstractFacts):
 
                 self.results['route_table'].append(info)
 
-    
     def get_listen_port(self):
 
         self.results['port_list'] = {
@@ -653,7 +630,6 @@ class AixFacts(AbstractFacts):
                 else:
                     local_to_any.append(port_info)
 
-    
     def get_locale(self):
         locale = self.ssh.run_command("locale")
 
@@ -664,7 +640,6 @@ class AixFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['locale'][key] = re.sub('"', '', value)
 
-    
     def get_env(self):
         env = self.ssh.run_command("env")
 
@@ -675,7 +650,6 @@ class AixFacts(AbstractFacts):
                 key, value = line.split("=")
                 self.results['env'][key] = value
 
-    
     def get_lvm_info(self):
         lsvg_path = "/usr/sbin/lsvg"
         xargs_path = "/usr/bin/xargs"
@@ -722,7 +696,6 @@ class AixFacts(AbstractFacts):
                                        }
                             self.results['vgs'][m.group(1)]['lvs'].append(lv_info)
 
-    
     def get_fs_info(self):
         fsList = self.ssh.run_command("/usr/bin/cat /etc/filesystems")
 
@@ -744,7 +717,6 @@ class AixFacts(AbstractFacts):
                     key, value = line.rsplit("=")
                     self.results['file_system'][fs][key.strip()] = value.strip()
 
-    
     def get_daemon_list(self):
         daemonList = self.ssh.run_command("/usr/bin/lssrc -a")
 
@@ -788,7 +760,6 @@ class AixFacts(AbstractFacts):
 
                 self.results['daemon_list'].append(daemon)
 
-    
     def get_security_info(self):
         self.results['security'] = {}
 
@@ -834,11 +805,9 @@ class AixFacts(AbstractFacts):
                         re.sub('\t', '', key): value.lstrip()
                     })
 
-    
     def get_firewall(self):
         None
 
-    
     def get_dns(self):
         out = self.ssh.run_command("cat /etc/resolv.conf")
         self.results['dns'] = []
@@ -853,22 +822,18 @@ class AixFacts(AbstractFacts):
                 for ns in data[1:]:
                     self.results['dns'].append(ns)
 
-    
     def get_login_def(self):
         self.results['def_info'] = dict(uid_min="201", uid_max="60000", gid_min="201", gid_max="60000")
 
     def get_uptime(self):
-        out = self.ssh.run_command("""
-        uptime | perl -ne '/.*up +(?:(\d+) days?,? +)?(\d+):(\d+),.*/;
-        $total=((($1*24+$2)*60+$3)*60);
-        $now=time();
-        $now-=$total;
-        $now=localtime($now);
-        print $now;'
-        """)
+        out = self.ssh.run_command(
+            'uptime | awk -F , \'{split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}\' | tr -d "\n"')
+
         self.results['uptime'] = None
         if out:
-            self.results['uptime'] = out
+            day, hour, sec = out.split()
+            timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
+            self.results['uptime'] = time.time() - timestamp
 
     def get_default_gateway(self, current_if):
         out = self.ssh.run_command('netstat -rn | grep default')
