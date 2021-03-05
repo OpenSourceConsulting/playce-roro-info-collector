@@ -32,86 +32,97 @@ class RhelFacts(AbstractFacts):
         }
 
     def execute(self):
-        try:
-            self.get_hostname()
-            self.get_cpu_facts()
-            self.get_memory_facts()
-            self.get_kernel()
-            self.get_bitmode()
-            self.get_dmi_facts()
-            self.get_interfaces_info()
-            self.get_vgs_facts()
-            self.get_users()
-            self.get_groups()
-            self.get_password_of_users()
-            self.get_ulimits()
-            self.get_crontabs()
-            # self.get_default_interfaces()
-            self.get_df()
-            # self.get_extra_partitions()
-            self.get_ps_lists()
-            self.get_kernel_parameters()
-            self.get_timezone()
-            self.get_route_table()
-            self.get_firewall()
-            self.get_listen_port()
-            self.get_locale()
-            self.get_env()
-            # self.get_fs_info()
-            self.get_fstab_info()
-            self.get_lvm_info()
-            self.get_daemon_list()
-            self.get_security_info()
-            self.get_dns()
-            # self.get_bonding()
-            self.get_login_def()
-            self.get_uptime()
-        except Exception as err:
-            LogManager.logger.error(err)
-        finally:
-            self.make_system_summary()
-            self.facts['results'] = self.results
-            self.ssh.close()
-            return self.results
+        self.get_hostname()
+        self.get_cpu_facts()
+        self.get_memory_facts()
+        self.get_kernel()
+        self.get_bitmode()
+        self.get_dmi_facts()
+        self.get_interfaces_info()
+        self.get_vgs_facts()
+        self.get_users()
+        self.get_groups()
+        self.get_password_of_users()
+        self.get_ulimits()
+        self.get_crontabs()
+        # self.get_default_interfaces()
+        self.get_df()
+        # self.get_extra_partitions()
+        self.get_ps_lists()
+        self.get_kernel_parameters()
+        self.get_timezone()
+        self.get_route_table()
+        self.get_firewall()
+        self.get_listen_port()
+        self.get_locale()
+        self.get_env()
+        # self.get_fs_info()
+        self.get_fstab_info()
+        self.get_lvm_info()
+        self.get_daemon_list()
+        self.get_security_info()
+        self.get_dns()
+        # self.get_bonding()
+        self.get_login_def()
+        self.get_uptime()
+
+        self.make_system_summary()
+        self.facts['results'] = self.results
+        self.ssh.close()
+        return self.results
 
     def get_hostname(self):
-        out = self.ssh.run_command("uname -n")
-        self.results['hostname'] = out.replace('\n', '')
+        try:
+            out = self.ssh.run_command("uname -n")
+            self.results['hostname'] = out.replace('\n', '')
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_cpu_facts(self):
-        lscpu = self.ssh.run_command("lscpu")
+        try:
+            lscpu = self.ssh.run_command("lscpu")
 
-        self.results['cpu'] = {}
-        if lscpu:
-            for line in lscpu.splitlines():
-                key, value = line.split(":")
-                self.results['cpu'][key] = value.lstrip()
+            self.results['cpu'] = {}
+            if lscpu:
+                for line in lscpu.splitlines():
+                    key, value = line.split(":")
+                    self.results['cpu'][key] = value.lstrip()
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_memory_facts(self):
-        self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
-        out = self.ssh.run_command("vmstat -s")
-        for line in out.splitlines():
-            data = line.split()
-            if 'total memory' in line:
-                memtotal_mb = int(data[0]) // 1024
-                self.results['memory']["memtotal_mb"] = memtotal_mb
-            if 'free memory' in line:
-                memfree_mb = int(data[0]) // 1024
-                self.results['memory']["memfree_mb"] = memfree_mb
-            if 'total swap' in line:
-                swaptotal_mb = int(data[0]) // 1024
-                self.results['memory']["swaptotal_mb"] = swaptotal_mb
-            if 'free swap' in line:
-                swapfree_mb = int(data[0]) // 1024
-                self.results['memory']["swapfree_mb"] = swapfree_mb
-
+        try:
+            self.results['memory'] = dict(memtotal_mb=None, memfree_mb=None, swaptotal_mb=None, swapfree_mb=None)
+            out = self.ssh.run_command("vmstat -s")
+            for line in out.splitlines():
+                data = line.split()
+                if 'total memory' in line:
+                    memtotal_mb = int(data[0]) // 1024
+                    self.results['memory']["memtotal_mb"] = memtotal_mb
+                if 'free memory' in line:
+                    memfree_mb = int(data[0]) // 1024
+                    self.results['memory']["memfree_mb"] = memfree_mb
+                if 'total swap' in line:
+                    swaptotal_mb = int(data[0]) // 1024
+                    self.results['memory']["swaptotal_mb"] = swaptotal_mb
+                if 'free swap' in line:
+                    swapfree_mb = int(data[0]) // 1024
+                    self.results['memory']["swapfree_mb"] = swapfree_mb
+        except Exception as err:
+            LogManager.logger.error(err)
     def get_kernel(self):
-        out = self.ssh.run_command("uname -r")
-        self.results['kernel'] = out.replace('\n', '')
+        try:
+            out = self.ssh.run_command("uname -r")
+            self.results['kernel'] = out.replace('\n', '')
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_bitmode(self):
-        out = self.ssh.run_command("uname -m")
-        self.results['architecture'] = out.replace('\n', '')
+        try:
+            out = self.ssh.run_command("uname -m")
+            self.results['architecture'] = out.replace('\n', '')
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_df(self):
         out = self.ssh.run_command("df -Tm")
@@ -145,79 +156,89 @@ class RhelFacts(AbstractFacts):
         #         dict(mount_point = data[0], type=data[1], lv_state = data[5], extra = 'True')
 
     def get_vgs_facts(self):
-        out = self.ssh.run_command("pvs | tail -1")
-        self.results['vgs'] = {}
-        if out:
-            for line in out.splitlines():
-                vg = line.split()
+        try:
+            out = self.ssh.run_command("pvs | tail -1")
+            self.results['vgs'] = {}
+            if out:
+                for line in out.splitlines():
+                    vg = line.split()
 
-                # /dev/sda2  centos lvm2 a--  <99.00g 4.00m
-                self.results['vgs'][vg[1]] = {
-                    'pv_name': vg[0],
-                    'fmt': vg[2],
-                    'p_size': vg[4],
-                    'p_free': vg[5]
-                }
-
+                    # /dev/sda2  centos lvm2 a--  <99.00g 4.00m
+                    self.results['vgs'][vg[1]] = {
+                        'pv_name': vg[0],
+                        'fmt': vg[2],
+                        'p_size': vg[4],
+                        'p_free': vg[5]
+                    }
+        except Exception as err:
+            LogManager.logger.error(err)
     def get_users(self):
-        # List of users excepted
-        out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
-        self.results['users'] = {}
-        if out:
-            except_users = []
-            for line in out.splitlines():
-                user = line.split(':')
+        try:
+            # List of users excepted
+            out = self.ssh.run_command("cat /etc/passwd | egrep -v '^#'")
+            self.results['users'] = {}
+            if out:
+                except_users = []
+                for line in out.splitlines():
+                    user = line.split(':')
 
-                # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
-                if not user[0] in except_users:
-                    profile = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*profile\'")
-                    rc = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*rc\'")
+                    # 0:username 1:password 2:uid 3:gid 4: 5:home-directory 6:shell
+                    if not user[0] in except_users:
+                        profile = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*profile\'")
+                        rc = self.ssh.run_command("sh -c \'cat " + user[5] + "/.*rc\'")
 
-                    all_files = ""
-                    if profile:
-                        all_files += profile
-                    if rc:
-                        all_files += rc
+                        all_files = ""
+                        if profile:
+                            all_files += profile
+                        if rc:
+                            all_files += rc
 
-                    self.results['users'][user[0]] = {'uid': user[2],
-                                                      'gid': user[3],
-                                                      'homedir': user[5],
-                                                      'shell': user[6],
-                                                      'profile': all_files
-                                                      }
+                        self.results['users'][user[0]] = {'uid': user[2],
+                                                          'gid': user[3],
+                                                          'homedir': user[5],
+                                                          'shell': user[6],
+                                                          'profile': all_files
+                                                          }
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_groups(self):
-        # List of groups excepted
+        try:
+            # List of groups excepted
+            out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
+            self.results['groups'] = {}
+            if out:
+                except_groups = []
+                for line in out.splitlines():
+                    group = line.split(':')
 
-        out = self.ssh.run_command("cat /etc/group | egrep -v '^#'")
-        self.results['groups'] = {}
-        if out:
-            except_groups = []
-            for line in out.splitlines():
-                group = line.split(':')
-
-                # 0:groupname 1: 2:gid 3:users
-                if not group[0] in except_groups:
-                    self.results['groups'][group[0]] = {'gid': group[2],
-                                                        'users': group[3].split(',')
-                                                        }
+                    # 0:groupname 1: 2:gid 3:users
+                    if not group[0] in except_groups:
+                        self.results['groups'][group[0]] = {'gid': group[2],
+                                                            'users': group[3].split(',')
+                                                            }
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_password_of_users(self):
-        self.results['shadow'] = {}
-        out = self.ssh.run_command("cat /etc/shadow")
-        if out:
-            for line in out.splitlines():
-                user = line.split(':')
-                # !! : no password, * : block
-                if user[1] != '*' and user[1] != '!!':
-                    self.results['shadow'][user[0]] = user[1]
+        try:
+            self.results['shadow'] = {}
+            out = self.ssh.run_command("cat /etc/shadow")
+            if out:
+                for line in out.splitlines():
+                    user = line.split(':')
+                    # !! : no password, * : block
+                    if user[1] != '*' and user[1] != '!!':
+                        self.results['shadow'][user[0]] = user[1]
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_ulimits(self):
-        user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
+        try:
+            user_list = self.ssh.run_command("cut -f1 -d: /etc/passwd")
 
-        self.results['ulimits'] = {}
-        for user in user_list.splitlines():
-            try:
+            self.results['ulimits'] = {}
+            for user in user_list.splitlines():
                 command = ("su - %s --shell /bin/bash -c 'ulimit -a'") % user
                 tmp_out = self.ssh.run_command(command)
                 regex = re.compile(r"\t", re.IGNORECASE)
@@ -229,85 +250,94 @@ class RhelFacts(AbstractFacts):
                         key = line[0:line.index("(")].strip()
                         value = line[line.index("("):len(line)].split()
                         self.results['ulimits'][user][key] = value[len(value) - 1]
-            except Exception as e:
-                print("Error with ", e.message)
-                self.results['ulimits'][user] = {}
+        except Exception as e:
+            print("Error with ", e.message)
+            self.results['ulimits'][user] = {}
 
     def get_crontabs(self):
-        self.results['crontabs'] = {}
-        out = self.ssh.run_command("find /var/spool/cron  -type f")
-        if out:
-            for line in out.splitlines():
-                out = self.ssh.run_command('cat ' + line)
-                self.results['crontabs'][line] = out
+        try:
+            self.results['crontabs'] = {}
+            out = self.ssh.run_command("find /var/spool/cron  -type f")
+            if out:
+                for line in out.splitlines():
+                    out = self.ssh.run_command('cat ' + line)
+                    self.results['crontabs'][line] = out
 
-        out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
-        if out:
-            for line in out.splitlines():
-                out = self.ssh.run_command('cat ' + line)
-                self.results['crontabs'][line] = out
+            out = self.ssh.run_command("find /var/spool/cron/crontabs  -type f")
+            if out:
+                for line in out.splitlines():
+                    out = self.ssh.run_command('cat ' + line)
+                    self.results['crontabs'][line] = out
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_default_interfaces(self):
-        out = self.ssh.run_command('ip route')
+        try:
+            out = self.ssh.run_command('ip route')
 
-        self.results['NICs'] = dict(v4=[], v6=[])
+            self.results['NICs'] = dict(v4=[], v6=[])
 
-        if out:
-            lines = out.splitlines()
-            for line in lines:
-                words = line.split()
-                if len(words) > 1 and words[0] == 'default':
-                    if '.' in words[2]:
-                        cur_info = {'gateway': words[2], 'interface': words[words.index("dev") + 1]}
-                        self.results['NICs']['v4'].append(cur_info)
-                    elif ':' in words[2]:
-                        self.results['NICs']['v6']['gateway'] = words[2]
-                        self.results['NICs']['v6']['interface'] = words[line.index("dev") + 1]
+            if out:
+                lines = out.splitlines()
+                for line in lines:
+                    words = line.split()
+                    if len(words) > 1 and words[0] == 'default':
+                        if '.' in words[2]:
+                            cur_info = {'gateway': words[2], 'interface': words[words.index("dev") + 1]}
+                            self.results['NICs']['v4'].append(cur_info)
+                        elif ':' in words[2]:
+                            self.results['NICs']['v6']['gateway'] = words[2]
+                            self.results['NICs']['v6']['interface'] = words[line.index("dev") + 1]
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_interfaces_info(self):
-        interfaces = {}
-        current_if = {}
-        ips = dict(
-            all_ipv4_addresses=[],
-            all_ipv6_addresses=[],
-        )
+        try:
+            interfaces = {}
+            current_if = {}
+            ips = dict(
+                all_ipv4_addresses=[],
+                all_ipv6_addresses=[],
+            )
 
-        self.results['interfaces'] = interfaces
+            self.results['interfaces'] = interfaces
 
-        """
-            Red Hat - ifconfig -a deprecate (ip addr)
-        """
-        out = self.ssh.run_command("ip addr")
-        for line in out.splitlines():
-            if line:
-                words = line.split()
+            """
+                Red Hat - ifconfig -a deprecate (ip addr)
+            """
+            out = self.ssh.run_command("ip addr")
+            for line in out.splitlines():
+                if line:
+                    words = line.split()
 
-                # only this condition differs from GenericBsdIfconfigNetwork
-                # centos 6 difference
-                if re.match('^\d*:', line):
-                    current_if = self.parse_interface_line(words)
-                    interfaces[current_if['device']] = current_if
-                    current_if['gateway'] = self.get_default_gateway(current_if)
-                    current_if['script'] = self.get_ifcfg_script(current_if)
-                    # self.get_default_gateway(current_if)
-                # elif words[0].startswith('options='):
-                #   self.parse_options_line(words, current_if, ips)
-                # elif words[0] == 'nd6':
-                #   self.parse_nd6_line(words, current_if, ips)
-                elif words[0] == 'link/ether':
-                    self.parse_ether_line(words, current_if, ips)
-                # elif words[0] == 'media:':
-                #   self.parse_media_line(words, current_if, ips)
-                # elif words[0] == 'status:':
-                #   self.parse_status_line(words, current_if, ips)
-                # elif words[0] == 'lladdr':
-                #   self.parse_lladdr_line(words, current_if, ips)
-                elif words[0] == 'inet':
-                    self.parse_inet_line(words, current_if, ips)
-                elif words[0] == 'inet6':
-                    self.parse_inet6_line(words, current_if, ips)
-                else:
-                    self.parse_unknown_line(words, current_if, ips)
+                    # only this condition differs from GenericBsdIfconfigNetwork
+                    # centos 6 difference
+                    if re.match('^\d*:', line):
+                        current_if = self.parse_interface_line(words)
+                        interfaces[current_if['device']] = current_if
+                        current_if['gateway'] = self.get_default_gateway(current_if)
+                        current_if['script'] = self.get_ifcfg_script(current_if)
+                        # self.get_default_gateway(current_if)
+                    # elif words[0].startswith('options='):
+                    #   self.parse_options_line(words, current_if, ips)
+                    # elif words[0] == 'nd6':
+                    #   self.parse_nd6_line(words, current_if, ips)
+                    elif words[0] == 'link/ether':
+                        self.parse_ether_line(words, current_if, ips)
+                    # elif words[0] == 'media:':
+                    #   self.parse_media_line(words, current_if, ips)
+                    # elif words[0] == 'status:':
+                    #   self.parse_status_line(words, current_if, ips)
+                    # elif words[0] == 'lladdr':
+                    #   self.parse_lladdr_line(words, current_if, ips)
+                    elif words[0] == 'inet':
+                        self.parse_inet_line(words, current_if, ips)
+                    elif words[0] == 'inet6':
+                        self.parse_inet6_line(words, current_if, ips)
+                    else:
+                        self.parse_unknown_line(words, current_if, ips)
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def parse_interface_line(self, words):
         device = words[1][0:-1]
@@ -382,239 +412,224 @@ class RhelFacts(AbstractFacts):
         pass
 
     def get_ps_lists(self):
-        out = self.ssh.run_command("ps -ef | grep -v ps")
+        try:
+            out = self.ssh.run_command("ps -ef")
 
-        self.results['processes'] = {}
-        if out:
-
-            for line in out.splitlines():
-                if "<defunct>" in line:
-                    continue
-
-                if 'UID' in line:
-                    continue
-
-                data = line.split()
-
-                if re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[7]):
-                    self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[8:])
-                    # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
-                elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
-                    if re.match('\[(.*?)\]', data[7]):
-                        continue
-                    self.results['processes'][data[7]] = dict(uid=data[0], pid=data[1], cmd=data[7:])
-                    # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
-
-    def get_kernel_parameters(self):
-        out = self.ssh.run_command("sysctl -a")
-
-        self.results['kernel_parameters'] = {}
-        for line in out.splitlines():
-            data = line.split('=')
-            key = data[0].strip()
-            value = re.sub('\t', ' ', data[1])
-            if value.__len__() > 1:
-                if key in self.results['kernel_parameters']:
-                    if type(self.results['kernel_parameters'][key]) is not list:
-                        self.results['kernel_parameters'][key] = [self.results['kernel_parameters'][key]]
-                    elif type(self.results['kernel_parameters'][key]) is list:
-                        self.results['kernel_parameters'][key].append(value.strip())
-                else:
-                    self.results['kernel_parameters'][key] = value.strip()
-
-    def get_dmi_facts(self):
-        out = self.ssh.run_command("dmidecode -s bios-version")
-        if out:
-            self.results['firmware_version'] = out.replace('\n', '')
-        else:
-            self.results['firmware_version'] = ""
-
-        out = self.ssh.run_command("dmidecode -s system-serial-number")
-
-        if out:
-            self.results['product_serial'] = out.replace('\n', '')
-        else:
-            self.results['product_serial'] = ""
-
-        out = self.ssh.run_command("dmidecode -s processor-manufacturer")
-
-        if out:
-            self.results['product_name'] = ''.join(sorted(set(out.replace('\n', '')), key=out.index))
-        else:
-            self.results['product_name'] = ""
-
-    def get_timezone(self):
-        out = self.ssh.run_command("timedatectl | grep 'Time zone'")
-
-        if out and len(out) > 1:
-            self.results['timezone'] = out.split(':')[1].strip().replace('\n', '')
-        else:
-            out = self.ssh.run_command("cat /etc/sysconfig/clock | grep ZONE")
-            self.results['timezone'] = out.split('=')[1].strip().replace('\n', '')
-
-    def get_route_table(self):
-        out = self.ssh.run_command("netstat -rn |  tail -n+3")
-
-        self.results['route_table'] = []
-        if out:
-            # Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
-            for line in out.splitlines():
-                data = line.split()
-                self.results['route_table'].append({
-                    'destination': data[0],
-                    'gateway': data[1],
-                    # 'genmask' : data[2],
-                    # 'flags' : data[3],
-                    # 'mss' : data[4],
-                    # 'window' : data[5],
-                    # 'irtt' : data[6],
-                    'iface': data[7],
-                })
-
-                # out = self.ssh.run_command("ip route")
-        # self.results['route_table'] = dict(list=[])
-        # for line in out.splitlines():
-        #     data = line.split()
-        #
-        #     info = {
-        #         "destination": data[0],
-        #         "Iface": data[data.index("dev") + 1]
-        #     }
-        #
-        #     if 'via' in line:
-        #         info["Gateway"] = data[data.index("via") + 1]
-        #     else:
-        #         info["Gateway"] = '0.0.0.0'
-        #
-        #     # if 'proto' in line:
-        #     #   info["Protocol"] = data[data.index("proto")+1]
-        #     # else:
-        #     #   info["Protocol"] = ''
-        #     # if 'metric' in line:
-        #     #   info["Metric"] = data[data.index("metric")+1]
-        #     # else:
-        #     #   info["Metric"] = ''
-        #     #
-        #     # if 'scope' in line:
-        #     #   info["Scope"] = data[data.index("scope")+1]
-        #     # else:
-        #     #   info["Scope"] = ''
-        #     #
-        #     # if 'src' in line:
-        #     #   info["Src"] = data[data.index("src")+1]
-        #     # else:
-        #     #   info["Src"] = ''
-        #
-        #     self.results['route_table']['list'].append(info)
-
-    def get_listen_port(self):
-        self.results['port_list'] = {
-            'listen': [],
-            'established': {}
-        }
-        out = self.ssh.run_command("netstat -nap | grep LISTEN")
-        if out:
-            listen_port = []
-            self.results['port_list']['listen'] = listen_port
-            for line in out.splitlines():
-                data = line.split()
-
-                if data[0] == 'unix':
-                    continue
-
-                l_addr, l_port = data[3].rsplit(':', 1)
-                f_addr, f_port = data[4].rsplit(':', 1)
-                pid, p_name = data[6].rsplit('/', 1)
-
-                if l_addr.count(':') < 4:
-                    port_info = {
-                        "protocol": data[0],
-                        "bind_addr": l_addr,
-                        "port": l_port,
-                        "pid": pid,
-                        "name": p_name,
-                    }
-                    listen_port.append(port_info)
-
-        out = self.ssh.run_command("netstat -nap | tail -n+3 | grep ESTABLISHED")
-
-        if out:
-            any_to_local = []
-            local_to_any = []
-            estab_port = {
-                'any_to_local': any_to_local,
-                'local_to_any': local_to_any
-            }
-            self.results['port_list']['established'] = estab_port
-            for line in out.splitlines():
-                data = line.split()
-
-                if data[0] == 'unix':
-                    continue
-
-                l_addr, l_port = data[3].rsplit(':', 1)
-                f_addr, f_port = data[4].rsplit(':', 1)
-                if data[6] == '-':
-                    pid = p_name = "-"
-                else:
-                    pid, p_name = data[6].rsplit('/', 1)
-
-                if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
-                    continue
-
-                lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
-
-                if lport_info:
-                    any_to_local.append({
-                        "protocol": data[0],
-                        "faddr": f_addr,
-                        "fport": f_port,
-                        "laddr": l_addr,
-                        "lport": l_port,
-                        "pid": pid,
-                        "name": p_name,
-                    })
-                else:
-                    local_to_any.append({
-                        "protocol": data[0],
-                        "faddr": f_addr,
-                        "fport": f_port,
-                        "laddr": l_addr,
-                        "lport": l_port,
-                        "pid": pid,
-                        "name": p_name,
-                    })
-
-    def get_firewall(self):
-        commands = [
-            'iptables -L --line-number -n',
-            'iptables -t nat -L --line-number -n'
-        ]
-
-        self.results['firewall'] = {}
-
-        for cmd in commands:
-            out = self.ssh.run_command(cmd)
+            self.results['processes'] = {}
             if out:
-                curent_chain = {}
-                type = ''
 
                 for line in out.splitlines():
-                    if 'Chain' in line:
-                        data = line.split();
-                        type = data[1]
-                        curent_chain[type] = {}
+                    if "<defunct>" in line:
                         continue
 
-                    if 'num' in line or len(line) < 1:
+                    if 'UID' in line:
                         continue
 
-                    self.parse_chain_rule(curent_chain, line, type)
+                    data = line.split()
 
-            if 'nat' in cmd:
-                self.results['firewall']['extra_rules'] = curent_chain
+                    if re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[7]):
+                        self.results['processes'][data[7]] = dict(user=data[0], pid=data[1], cmd=data[8:])
+                        # self.results['processes'].append(dict(uid = data[0], cmd = data[8:]))
+                    elif re.match('[0-9][0-9]:[0-9][0-9]:[0-9][0-9]', data[6]):
+                        if re.match('\[(.*?)\]', data[7]):
+                            continue
+                        self.results['processes'][data[7]] = dict(user=data[0], pid=data[1], cmd=data[7:])
+                        # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_kernel_parameters(self):
+        try:
+            out = self.ssh.run_command("sysctl -a")
+
+            self.results['kernel_parameters'] = {}
+            for line in out.splitlines():
+                data = line.split('=')
+                key = data[0].strip()
+                value = re.sub('\t', ' ', data[1])
+                if value.__len__() > 1:
+                    if key in self.results['kernel_parameters']:
+                        if type(self.results['kernel_parameters'][key]) is not list:
+                            self.results['kernel_parameters'][key] = [self.results['kernel_parameters'][key]]
+                        elif type(self.results['kernel_parameters'][key]) is list:
+                            self.results['kernel_parameters'][key].append(value.strip())
+                    else:
+                        self.results['kernel_parameters'][key] = value.strip()
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_dmi_facts(self):
+        try:
+            out = self.ssh.run_command("dmidecode -s bios-version")
+            if out:
+                self.results['firmware_version'] = out.replace('\n', '')
             else:
-                self.results['firewall']['rules'] = curent_chain
+                self.results['firmware_version'] = ""
+
+            out = self.ssh.run_command("dmidecode -s system-serial-number")
+
+            if out:
+                self.results['product_serial'] = out.replace('\n', '')
+            else:
+                self.results['product_serial'] = ""
+
+            out = self.ssh.run_command("dmidecode -s processor-manufacturer")
+
+            if out:
+                self.results['product_name'] = ''.join(sorted(set(out.replace('\n', '')), key=out.index))
+            else:
+                self.results['product_name'] = ""
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_timezone(self):
+        try:
+            out = self.ssh.run_command("timedatectl | grep 'Time zone'")
+
+            if out and len(out) > 1:
+                self.results['timezone'] = out.split(':')[1].strip().replace('\n', '')
+            else:
+                out = self.ssh.run_command("cat /etc/sysconfig/clock | grep ZONE")
+                self.results['timezone'] = out.split('=')[1].strip().replace('\n', '')
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_route_table(self):
+        try:
+            out = self.ssh.run_command("netstat -rn |  tail -n+3")
+
+            self.results['route_table'] = []
+            if out:
+                # Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+                for line in out.splitlines():
+                    data = line.split()
+                    self.results['route_table'].append({
+                        'destination': data[0],
+                        'gateway': data[1],
+                        # 'genmask' : data[2],
+                        # 'flags' : data[3],
+                        # 'mss' : data[4],
+                        # 'window' : data[5],
+                        # 'irtt' : data[6],
+                        'iface': data[7],
+                    })
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_listen_port(self):
+        try:
+            self.results['port_list'] = {
+                'listen': [],
+                'established': {}
+            }
+            out = self.ssh.run_command("netstat -nap | grep LISTEN")
+            if out:
+                listen_port = []
+                self.results['port_list']['listen'] = listen_port
+                for line in out.splitlines():
+                    data = line.split()
+
+                    if data[0] == 'unix':
+                        continue
+
+                    l_addr, l_port = data[3].rsplit(':', 1)
+                    f_addr, f_port = data[4].rsplit(':', 1)
+                    pid, p_name = data[6].rsplit('/', 1)
+
+                    if l_addr.count(':') < 4:
+                        port_info = {
+                            "protocol": data[0],
+                            "bind_addr": l_addr,
+                            "port": l_port,
+                            "pid": pid,
+                            "name": p_name,
+                        }
+                        listen_port.append(port_info)
+
+            out = self.ssh.run_command("netstat -nap | tail -n+3 | grep ESTABLISHED")
+
+            if out:
+                any_to_local = []
+                local_to_any = []
+                estab_port = {
+                    'any_to_local': any_to_local,
+                    'local_to_any': local_to_any
+                }
+                self.results['port_list']['established'] = estab_port
+                for line in out.splitlines():
+                    data = line.split()
+
+                    if data[0] == 'unix':
+                        continue
+
+                    l_addr, l_port = data[3].rsplit(':', 1)
+                    f_addr, f_port = data[4].rsplit(':', 1)
+                    if data[6] == '-':
+                        pid = p_name = "-"
+                    else:
+                        pid, p_name = data[6].rsplit('/', 1)
+
+                    if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
+                        continue
+
+                    lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
+
+                    if lport_info:
+                        any_to_local.append({
+                            "protocol": data[0],
+                            "faddr": f_addr,
+                            "fport": f_port,
+                            "laddr": l_addr,
+                            "lport": l_port,
+                            "pid": pid,
+                            "name": p_name,
+                        })
+                    else:
+                        local_to_any.append({
+                            "protocol": data[0],
+                            "faddr": f_addr,
+                            "fport": f_port,
+                            "laddr": l_addr,
+                            "lport": l_port,
+                            "pid": pid,
+                            "name": p_name,
+                        })
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_firewall(self):
+        try:
+            commands = [
+                'iptables -L --line-number -n',
+                'iptables -t nat -L --line-number -n'
+            ]
+
+            self.results['firewall'] = {}
+
+            for cmd in commands:
+                out = self.ssh.run_command(cmd)
+                if out:
+                    curent_chain = {}
+                    type = ''
+
+                    for line in out.splitlines():
+                        if 'Chain' in line:
+                            data = line.split();
+                            type = data[1]
+                            curent_chain[type] = {}
+                            continue
+
+                        if 'num' in line or len(line) < 1:
+                            continue
+
+                        self.parse_chain_rule(curent_chain, line, type)
+
+                if 'nat' in cmd:
+                    self.results['firewall']['extra_rules'] = curent_chain
+                else:
+                    self.results['firewall']['rules'] = curent_chain
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def parse_chain_rule(self, cur_chain, line, type):
 
@@ -632,162 +647,198 @@ class RhelFacts(AbstractFacts):
         cur_chain[type][data[0]] = info
 
     def get_locale(self):
-        locale = self.ssh.run_command("locale")
+        try:
+            locale = self.ssh.run_command("locale")
 
-        self.results['locale'] = dict()
-        if locale:
+            self.results['locale'] = dict()
+            if locale:
 
-            for line in locale.splitlines():
-                key, value = line.split("=")
-                self.results['locale'][key] = re.sub('"', '', value)
+                for line in locale.splitlines():
+                    key, value = line.split("=")
+                    self.results['locale'][key] = re.sub('"', '', value)
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_env(self):
-        self.results['env'] = dict()
-        env = self.ssh.run_command("env")
+        try:
+            self.results['env'] = dict()
+            env = self.ssh.run_command("env")
 
-        if env:
+            if env:
 
-            for line in env.splitlines():
-                key, value = line.split("=")
-                self.results['env'][key] = value
+                for line in env.splitlines():
+                    key, value = line.split("=")
+                    self.results['env'][key] = value
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_lvm_info(self):
-        vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
+        try:
+            vgs = self.ssh.run_command("vgs | awk '{print $1}' | tail -n+2")
 
-        self.results['vgs'] = {}
-        if vgs:
-            for vg in vgs.splitlines():
-                self.results['vgs'][vg] = dict(pvs=[], lvs=[])
+            self.results['vgs'] = {}
+            if vgs:
+                for vg in vgs.splitlines():
+                    self.results['vgs'][vg] = dict(pvs=[], lvs=[])
 
-        lvs = self.ssh.run_command("lvdisplay")
+            lvs = self.ssh.run_command("lvdisplay")
 
-        if lvs:
-            for line in lvs.splitlines():
-                line = line.strip()
-                if re.match('(-+\s\w+\s\w+\s+-+)', line):
-                    lv_info = {}
-                if 'LV Path' in line:
-                    value = line.replace("LV Path", "").strip()
-                    lv_info.update({"lv_path": value})
-                elif 'LV Name' in line:
-                    value = line.replace("LV Name", "").strip()
-                    lv_info.update({"lv_name": value})
-                elif 'VG Name' in line:
-                    value = line.replace("VG Name", "").strip()
-                    lv_info.update({"vg_name": value})
-                    self.results['vgs'][value]['lvs'].append(lv_info)
-                elif 'LV UUID' in line:
-                    value = line.replace("LV UUID", "").strip()
-                    lv_info.update({"lv_uuid": value})
-                elif 'LV Size' in line:
-                    value = line.replace("LV Size", "").strip()
-                    lv_info.update({"lv_size": value})
-                # elif 'LV Write Access' in line:
-                # elif 'Current LE' in line:
-                # elif 'Block device' in line:
-                # elif 'LV Creation host, time' in line:
+            if lvs:
+                for line in lvs.splitlines():
+                    line = line.strip()
+                    if re.match('(-+\s\w+\s\w+\s+-+)', line):
+                        lv_info = {}
+                    if 'LV Path' in line:
+                        value = line.replace("LV Path", "").strip()
+                        lv_info.update({"lv_path": value})
+                    elif 'LV Name' in line:
+                        value = line.replace("LV Name", "").strip()
+                        lv_info.update({"lv_name": value})
+                    elif 'VG Name' in line:
+                        value = line.replace("VG Name", "").strip()
+                        lv_info.update({"vg_name": value})
+                        self.results['vgs'][value]['lvs'].append(lv_info)
+                    elif 'LV UUID' in line:
+                        value = line.replace("LV UUID", "").strip()
+                        lv_info.update({"lv_uuid": value})
+                    elif 'LV Size' in line:
+                        value = line.replace("LV Size", "").strip()
+                        lv_info.update({"lv_size": value})
+                    # elif 'LV Write Access' in line:
+                    # elif 'Current LE' in line:
+                    # elif 'Block device' in line:
+                    # elif 'LV Creation host, time' in line:
 
-        pvs = self.ssh.run_command("pvdisplay")
+            pvs = self.ssh.run_command("pvdisplay")
 
-        if pvs:
-            for line in pvs.splitlines():
-                line = line.strip()
-                if re.match('(-+\s\w+\s\w+\s+-+)', line):
-                    pv_info = {}
-                elif 'PV Name' in line:
-                    value = line.replace("PV Name", "").strip()
-                    pv_info.update({"pv_name": value})
-                elif 'VG Name' in line:
-                    value = line.replace("VG Name", "").strip()
-                    pv_info.update({"vg_name": value})
-                    self.results['vgs'][value]['pvs'].append(pv_info)
-                elif 'PV Size' in line:
-                    value = line.replace("PV Size", "").strip()
-                    pv_info.update({"pv_size": value})
-                elif 'Allocatable' in line:
-                    value = line.replace("Allocatable", "").strip()
-                    pv_info.update({"allocatable": value})
-                elif 'PE Size' in line:
-                    value = line.replace("PE Size", "").strip()
-                    pv_info.update({"pe_size": value})
-                elif 'Total PE' in line:
-                    value = line.replace("Total PE", "").strip()
-                    pv_info.update({"total_pe": value})
-                elif 'Free PE' in line:
-                    value = line.replace("Free PE", "").strip()
-                    pv_info.update({"free_pe": value})
-                elif 'Allocated PE' in line:
-                    value = line.replace("Allocated PE", "").strip()
-                    pv_info.update({"allocated_pe": value})
-                elif 'PV UUID' in line:
-                    value = line.replace("PV UUID", "").strip()
-                    pv_info.update({"pv_uuid": value})
+            if pvs:
+                for line in pvs.splitlines():
+                    line = line.strip()
+                    if re.match('(-+\s\w+\s\w+\s+-+)', line):
+                        pv_info = {}
+                    elif 'PV Name' in line:
+                        value = line.replace("PV Name", "").strip()
+                        pv_info.update({"pv_name": value})
+                    elif 'VG Name' in line:
+                        value = line.replace("VG Name", "").strip()
+                        pv_info.update({"vg_name": value})
+                        self.results['vgs'][value]['pvs'].append(pv_info)
+                    elif 'PV Size' in line:
+                        value = line.replace("PV Size", "").strip()
+                        pv_info.update({"pv_size": value})
+                    elif 'Allocatable' in line:
+                        value = line.replace("Allocatable", "").strip()
+                        pv_info.update({"allocatable": value})
+                    elif 'PE Size' in line:
+                        value = line.replace("PE Size", "").strip()
+                        pv_info.update({"pe_size": value})
+                    elif 'Total PE' in line:
+                        value = line.replace("Total PE", "").strip()
+                        pv_info.update({"total_pe": value})
+                    elif 'Free PE' in line:
+                        value = line.replace("Free PE", "").strip()
+                        pv_info.update({"free_pe": value})
+                    elif 'Allocated PE' in line:
+                        value = line.replace("Allocated PE", "").strip()
+                        pv_info.update({"allocated_pe": value})
+                    elif 'PV UUID' in line:
+                        value = line.replace("PV UUID", "").strip()
+                        pv_info.update({"pv_uuid": value})
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_fs_info(self):
         None
 
     def get_fstab_info(self):
-        fstab = self.ssh.run_command("cat /etc/fstab")
+        try:
+            fstab = self.ssh.run_command("cat /etc/fstab")
 
-        self.results['fstab'] = []
-        if fstab:
-            regex = re.compile('^\#')
-            for line in fstab.splitlines():
-                if regex.match(line) or line in ['', '\n']:
-                    continue
-                info = line.split()
+            self.results['fstab'] = []
+            if fstab:
+                regex = re.compile('^\#')
+                for line in fstab.splitlines():
+                    if regex.match(line) or line in ['', '\n']:
+                        continue
+                    info = line.split()
 
-                self.results['fstab'].append(
-                    dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
-                )
+                    self.results['fstab'].append(
+                        dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
+                    )
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_daemon_list(self):
-        self.results['daemon_list'] = {}
-        version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
-        version = float(version.replace('\"', ''))
-        if version >= 7:
-            cmd = "systemctl list-unit-files"
-            out = self.ssh.run_command(cmd)
+        try:
+            self.results['daemon_list'] = {}
+            version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
+            version = float(version.replace('\"', ''))
+            if version >= 7:
+                cmd = "systemctl list-unit-files"
+                out = self.ssh.run_command(cmd)
 
+                if out:
+                    for line in out.splitlines():
+                        if 'STATE' in line:
+                            continue
+
+                        data = line.split()
+                        if len(data) > 1:
+                            self.results['daemon_list'][data[0]] = data[1]
+            elif version < 7:
+                cmd = "service --status-all"
+                out = self.ssh.run_command(cmd)
+                if out:
+                    for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
+
+                        if '+' in m.group(1):
+                            self.results['daemon_list'][m.group(2)] = "running"
+                        elif '-' in m.group(1):
+                            self.results['daemon_list'][m.group(2)] = "stop"
+                        else:
+                            self.results['daemon_list'][m.group(2)] = "unknown"
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_security_info(self):
+        try:
+            out = self.ssh.run_command("cat /etc/login.defs")
+
+            self.results['security'] = {"password": dict()}
             if out:
                 for line in out.splitlines():
-                    if 'STATE' in line:
+
+                    regex = re.compile('^\#')
+                    if regex.match(line) or line in ['', '\n']:
+                        continue
+
+                    key, value = line.split()
+                    self.results['security']["password"][key] = value
+        except Exception as err:
+            LogManager.logger.error(err)
+
+    def get_dns(self):
+        try:
+            out = self.ssh.run_command("cat /etc/resolv.conf")
+            self.results['dns'] = []
+            if out:
+                for line in out.splitlines():
+
+                    regex = re.compile('^\#')
+                    if regex.match(line) or line in ['', '\n']:
                         continue
 
                     data = line.split()
-                    if len(data) > 1:
-                        self.results['daemon_list'][data[0]] = data[1]
-        elif version < 7:
-            cmd = "service --status-all"
-            out = self.ssh.run_command(cmd)
-            if out:
-                for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
+                    for ns in data[1:]:
+                        self.results['dns'].append(ns)
+        except Exception as err:
+            LogManager.logger.error(err)
 
-                    if '+' in m.group(1):
-                        self.results['daemon_list'][m.group(2)] = "running"
-                    elif '-' in m.group(1):
-                        self.results['daemon_list'][m.group(2)] = "stop"
-                    else:
-                        self.results['daemon_list'][m.group(2)] = "unknown"
-
-    def get_security_info(self):
-        out = self.ssh.run_command("cat /etc/login.defs")
-
-        self.results['security'] = {"password": dict()}
-        if out:
-            for line in out.splitlines():
-
-                regex = re.compile('^\#')
-                if regex.match(line) or line in ['', '\n']:
-                    continue
-
-                key, value = line.split()
-                self.results['security']["password"][key] = value
-
-    def get_dns(self):
-        out = self.ssh.run_command("cat /etc/resolv.conf")
-        self.results['dns'] = []
-        if out:
+    def get_login_def(self):
+        try:
+            out = self.ssh.run_command("cat /etc/login.defs")
+            self.results['def_info'] = {}
+            targetField = [u'UID_MIN', u'UID_MAX', u'GID_MIN', u'GID_MAX']
             for line in out.splitlines():
 
                 regex = re.compile('^\#')
@@ -795,72 +846,80 @@ class RhelFacts(AbstractFacts):
                     continue
 
                 data = line.split()
-                for ns in data[1:]:
-                    self.results['dns'].append(ns)
 
-    def get_login_def(self):
-        out = self.ssh.run_command("cat /etc/login.defs")
-        self.results['def_info'] = {}
-        targetField = [u'UID_MIN', u'UID_MAX', u'GID_MIN', u'GID_MAX']
-        for line in out.splitlines():
-
-            regex = re.compile('^\#')
-            if regex.match(line) or line in ['', '\n']:
-                continue
-
-            data = line.split()
-
-            if data[0] in targetField:
-                self.results['def_info'][data[0].lower()] = data[1]
+                if data[0] in targetField:
+                    self.results['def_info'][data[0].lower()] = data[1]
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_uptime(self):
-        out = self.ssh.run_command(
-            'uptime | awk -F , \'{split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}\' | tr -d "\n"')
+        try:
+            out = self.ssh.run_command(
+                'uptime | awk -F , \'{n=split($1,day," ")} END {if(n>3){split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}else{split($1,day," "); split(day[3],hour,":"); print 0" "hour[1]" "hour[2]}}\' | tr -d "\n"')
 
-        self.results['uptime'] = None
-        if out:
-            day, hour, sec = out.split()
-            timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
-            self.results['uptime'] = time.time() - timestamp
+            self.results['uptime'] = None
+
+            if out:
+                day, hour, sec = out.split()
+                timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
+                self.results['uptime'] = time.time() - timestamp
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_default_gateway(self, current_if):
-        out = self.ssh.run_command('ip route | grep default')
+        try:
+            out = self.ssh.run_command('ip route | grep default')
 
-        if out:
-            lines = out.splitlines()
-            for line in lines:
-                words = line.split()
-                if len(words) > 1 and words[0] == 'default':
-                    if words[words.index("dev") + 1] == current_if['device']:
-                        return words[2]
+            if out:
+                lines = out.splitlines()
+                for line in lines:
+                    words = line.split()
+                    if len(words) > 1 and words[0] == 'default':
+                        if words[words.index("dev") + 1] == current_if['device']:
+                            return words[2]
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_ifcfg_script(self, current_if):
-        # Centos 7.7
-        file = self.ssh.run_command('ls /etc/sysconfig/network-scripts/ifcfg-%s' % current_if['device'])
+        try:
+            # Centos 7.7
+            file = self.ssh.run_command('ls /etc/sysconfig/network-scripts/ifcfg-%s' % current_if['device'])
 
-        if file:
-            return self.ssh.run_command("cat %s" % file)
+            if file:
+                return self.ssh.run_command("cat %s" % file)
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def get_bonding(self):
-        rootPath = '/etc/sysconfig/network-scripts'
-        list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d ' - '' % rootPath)
+        try:
+            rootPath = '/etc/sysconfig/network-scripts'
+            list = self.ssh.run_command('ls %s | grep ifcfg-bond | cut -f2 -d ' - '' % rootPath)
 
-        if list:
-            self.results['bonding'] = {}
-            for bond in list.splitlines():
-                cfg = self.ssh.run_command('cat %s/ifcfg-%s' % rootPath, bond)
-                self.results['bonding'][bond] = cfg
-                # ToDo: Detail /proc/net/bonding/{bond}
+            if list:
+                self.results['bonding'] = {}
+                for bond in list.splitlines():
+                    cfg = self.ssh.run_command('cat %s/ifcfg-%s' % rootPath, bond)
+                    self.results['bonding'][bond] = cfg
+                    # ToDo: Detail /proc/net/bonding/{bond}
+        except Exception as err:
+            LogManager.logger.error(err)
 
     def make_system_summary(self):
-        self.facts["system_summary"]["os"] = self.results['distribution_version']
-        self.facts["system_summary"]["hostname"] = self.results['hostname']
-        self.facts["system_summary"]["family"] = self.results['family']
+        if self.results['distribution_version']:
+            self.facts["system_summary"]["os"] = self.results['distribution_version']
+        if self.results['hostname']:
+            self.facts["system_summary"]["hostname"] = self.results['hostname']
+        if self.results['family']:
+            self.facts["system_summary"]["family"] = self.results['family']
 
-        self.facts["system_summary"]["kernel"] = self.results['kernel']
-        self.facts["system_summary"]["architecture"] = self.results['architecture']
-        self.facts["system_summary"]["vendor"] = self.results['product_name']
-        self.facts["system_summary"]["defInfo"] = self.results['def_info']
+        if self.results['kernel']:
+            self.facts["system_summary"]["kernel"] = self.results['kernel']
+        if self.results['architecture']:
+            self.facts["system_summary"]["architecture"] = self.results['architecture']
+        if self.results['product_name']:
+            self.facts["system_summary"]["vendor"] = self.results['product_name']
+        if self.results['def_info']:
+            self.facts["system_summary"]["defInfo"] = self.results['def_info']
 
         self.make_cpu_summary()
         self.make_memory_summary()
@@ -868,15 +927,20 @@ class RhelFacts(AbstractFacts):
         self.make_network_summary()
 
     def make_cpu_summary(self):
-        self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
-        self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
+        if 'Socket(s)' in self.results['cpu']:
+            self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
+        if 'Model name' in self.results['cpu']:
+            self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
 
     def make_memory_summary(self):
-        self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
-        self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+        if "memtotal_mb" in self.results['memory']:
+            self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+        if "swaptotal_mb" in self.results['memory']:
+            self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
 
     def make_disk_summary(self):
-        self.facts["system_summary"]["diskInfo"] = self.results['partitions']
+        if self.results['partitions']:
+            self.facts["system_summary"]["diskInfo"] = self.results['partitions']
 
     def make_network_summary(self):
         self.facts['system_summary']['networkInfo'] = dict(interfaces=self.results['interfaces'])

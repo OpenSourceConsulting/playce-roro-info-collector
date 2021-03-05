@@ -28,12 +28,12 @@ class LinuxFactorGenerator:
             self.factor = DebianFacts(params, os_release)
 
     def get_distribution_Linux(self):
-        out = self.ssh.run_command("cat /etc/*-release | grep PRETTY_NAME")
+        out = self.ssh.run_command("cat /etc/*-release | tail -1")
 
-        if len(out) > 1:
-            data = out.split("=")
-            result = re.sub('\n|"', '', data[1])
-            return result
+        if out:
+            # data = out.split("=")
+            # result = re.sub('\n|"', '', data[1])
+            return out
 
         return 'None'
 

@@ -1,9 +1,7 @@
 import simplejson as json
 import abc
 
-from info.facts.log.LogManager import LogManager
 from info.facts.ssh.sshBase import *
-from functools import wraps
 
 if sys.version_info >= (3, 4):
     ABC = abc.ABC

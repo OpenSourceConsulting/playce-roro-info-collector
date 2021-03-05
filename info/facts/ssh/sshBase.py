@@ -26,6 +26,9 @@ class SshBase(object):
 
         self.ssh = paramiko.SSHClient()
 
+        if username == "root":
+            self.isSudo = False
+
         if key_policy != "ignore":
             self.ssh.load_system_host_keys()
             try:
