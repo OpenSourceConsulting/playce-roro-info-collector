@@ -28,8 +28,10 @@ class RhelFacts(AbstractFacts):
         AbstractFacts.__init__(self, params)
         self.results = {
             'distribution_version': release,
-            'family': "Redhat"
+            'family': "Redhat",
+            'task_result' : {}
         }
+        self.err_msg = {}
 
     def execute(self):
         self.get_hostname()
@@ -68,14 +70,16 @@ class RhelFacts(AbstractFacts):
 
         self.make_system_summary()
         self.facts['results'] = self.results
+        self.facts['err_msg'] = self.err_msg
         self.ssh.close()
-        return self.results
+
 
     def get_hostname(self):
         try:
             out = self.ssh.run_command("uname -n")
             self.results['hostname'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_hostname'] = err.message
             LogManager.logger.error(err)
 
     def get_cpu_facts(self):
@@ -88,6 +92,7 @@ class RhelFacts(AbstractFacts):
                     key, value = line.split(":")
                     self.results['cpu'][key] = value.lstrip()
         except Exception as err:
+            self.err_msg['get_cpu_facts'] = err.message
             LogManager.logger.error(err)
 
     def get_memory_facts(self):
@@ -109,12 +114,15 @@ class RhelFacts(AbstractFacts):
                     swapfree_mb = int(data[0]) // 1024
                     self.results['memory']["swapfree_mb"] = swapfree_mb
         except Exception as err:
+            self.err_msg['get_memory_facts'] = err.message
             LogManager.logger.error(err)
+
     def get_kernel(self):
         try:
             out = self.ssh.run_command("uname -r")
             self.results['kernel'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_kernel'] = err.message
             LogManager.logger.error(err)
 
     def get_bitmode(self):
@@ -122,18 +130,23 @@ class RhelFacts(AbstractFacts):
             out = self.ssh.run_command("uname -m")
             self.results['architecture'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_bitmode'] = err.message
             LogManager.logger.error(err)
 
     def get_df(self):
-        out = self.ssh.run_command("df -Tm")
+        try:
+            out = self.ssh.run_command("df -Tm")
 
-        self.results['partitions'] = {}
-        if out:
-            regex = re.compile(r'^/dev/', re.IGNORECASE)
-            for line in out.splitlines():
-                if regex.match(line):
-                    pt = line.split()
-                    self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
+            self.results['partitions'] = {}
+            if out:
+                regex = re.compile(r'^/dev/', re.IGNORECASE)
+                for line in out.splitlines():
+                    if regex.match(line):
+                        pt = line.split()
+                        self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
+        except Exception as err:
+            self.err_msg['get_df'] = err.message
+            LogManager.logger.error(err)
 
     def get_extra_partitions(self):
         root_partitions = ['N/A', '/', '/usr', '/var', '/tmp', '/home', '/proc', '/opt', '/admin',
@@ -171,7 +184,9 @@ class RhelFacts(AbstractFacts):
                         'p_free': vg[5]
                     }
         except Exception as err:
+            self.err_msg['get_vgs_facts'] = err.message
             LogManager.logger.error(err)
+
     def get_users(self):
         try:
             # List of users excepted
@@ -200,6 +215,7 @@ class RhelFacts(AbstractFacts):
                                                           'profile': all_files
                                                           }
         except Exception as err:
+            self.err_msg['get_users'] = err.message
             LogManager.logger.error(err)
 
     def get_groups(self):
@@ -218,6 +234,7 @@ class RhelFacts(AbstractFacts):
                                                             'users': group[3].split(',')
                                                             }
         except Exception as err:
+            self.err_msg['get_groups'] = err.message
             LogManager.logger.error(err)
 
     def get_password_of_users(self):
@@ -231,6 +248,7 @@ class RhelFacts(AbstractFacts):
                     if user[1] != '*' and user[1] != '!!':
                         self.results['shadow'][user[0]] = user[1]
         except Exception as err:
+            self.err_msg['get_password_of_users'] = err.message
             LogManager.logger.error(err)
 
     def get_ulimits(self):
@@ -250,8 +268,8 @@ class RhelFacts(AbstractFacts):
                         key = line[0:line.index("(")].strip()
                         value = line[line.index("("):len(line)].split()
                         self.results['ulimits'][user][key] = value[len(value) - 1]
-        except Exception as e:
-            print("Error with ", e.message)
+        except Exception as err:
+            self.err_msg['get_ulimits'] = err.message
             self.results['ulimits'][user] = {}
 
     def get_crontabs(self):
@@ -269,6 +287,7 @@ class RhelFacts(AbstractFacts):
                     out = self.ssh.run_command('cat ' + line)
                     self.results['crontabs'][line] = out
         except Exception as err:
+            self.err_msg['get_crontabs'] = err.message
             LogManager.logger.error(err)
 
     def get_default_interfaces(self):
@@ -289,6 +308,7 @@ class RhelFacts(AbstractFacts):
                             self.results['NICs']['v6']['gateway'] = words[2]
                             self.results['NICs']['v6']['interface'] = words[line.index("dev") + 1]
         except Exception as err:
+            self.err_msg['get_default_interfaces'] = err.message
             LogManager.logger.error(err)
 
     def get_interfaces_info(self):
@@ -337,6 +357,7 @@ class RhelFacts(AbstractFacts):
                     else:
                         self.parse_unknown_line(words, current_if, ips)
         except Exception as err:
+            self.err_msg['get_interfaces_info'] = err.message
             LogManager.logger.error(err)
 
     def parse_interface_line(self, words):
@@ -436,6 +457,7 @@ class RhelFacts(AbstractFacts):
                         self.results['processes'][data[7]] = dict(user=data[0], pid=data[1], cmd=data[7:])
                         # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
         except Exception as err:
+            self.err_msg['get_ps_lists'] = err.message
             LogManager.logger.error(err)
 
     def get_kernel_parameters(self):
@@ -456,6 +478,7 @@ class RhelFacts(AbstractFacts):
                     else:
                         self.results['kernel_parameters'][key] = value.strip()
         except Exception as err:
+            self.err_msg['get_kernel_parameters'] = err.message
             LogManager.logger.error(err)
 
     def get_dmi_facts(self):
@@ -480,6 +503,7 @@ class RhelFacts(AbstractFacts):
             else:
                 self.results['product_name'] = ""
         except Exception as err:
+            self.err_msg['get_dmi_facts'] = err.message
             LogManager.logger.error(err)
 
     def get_timezone(self):
@@ -492,6 +516,7 @@ class RhelFacts(AbstractFacts):
                 out = self.ssh.run_command("cat /etc/sysconfig/clock | grep ZONE")
                 self.results['timezone'] = out.split('=')[1].strip().replace('\n', '')
         except Exception as err:
+            self.err_msg['get_timezone'] = err.message
             LogManager.logger.error(err)
 
     def get_route_table(self):
@@ -514,6 +539,7 @@ class RhelFacts(AbstractFacts):
                         'iface': data[7],
                     })
         except Exception as err:
+            self.err_msg['get_route_table'] = err.message
             LogManager.logger.error(err)
 
     def get_listen_port(self):
@@ -595,6 +621,7 @@ class RhelFacts(AbstractFacts):
                             "name": p_name,
                         })
         except Exception as err:
+            self.err_msg['get_listen_port'] = err.message
             LogManager.logger.error(err)
 
     def get_firewall(self):
@@ -629,6 +656,7 @@ class RhelFacts(AbstractFacts):
                 else:
                     self.results['firewall']['rules'] = curent_chain
         except Exception as err:
+            self.err_msg['get_firewall'] = err.message
             LogManager.logger.error(err)
 
     def parse_chain_rule(self, cur_chain, line, type):
@@ -657,6 +685,7 @@ class RhelFacts(AbstractFacts):
                     key, value = line.split("=")
                     self.results['locale'][key] = re.sub('"', '', value)
         except Exception as err:
+            self.err_msg['get_locale'] = err.message
             LogManager.logger.error(err)
 
     def get_env(self):
@@ -670,6 +699,7 @@ class RhelFacts(AbstractFacts):
                     key, value = line.split("=")
                     self.results['env'][key] = value
         except Exception as err:
+            self.err_msg['get_env'] = err.message
             LogManager.logger.error(err)
 
     def get_lvm_info(self):
@@ -745,6 +775,7 @@ class RhelFacts(AbstractFacts):
                         value = line.replace("PV UUID", "").strip()
                         pv_info.update({"pv_uuid": value})
         except Exception as err:
+            self.err_msg['get_lvm_info'] = err.message
             LogManager.logger.error(err)
 
     def get_fs_info(self):
@@ -766,6 +797,7 @@ class RhelFacts(AbstractFacts):
                         dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
                     )
         except Exception as err:
+            self.err_msg['get_fstab_info'] = err.message
             LogManager.logger.error(err)
 
     def get_daemon_list(self):
@@ -798,6 +830,7 @@ class RhelFacts(AbstractFacts):
                         else:
                             self.results['daemon_list'][m.group(2)] = "unknown"
         except Exception as err:
+            self.err_msg['get_daemon_list'] = err.message
             LogManager.logger.error(err)
 
     def get_security_info(self):
@@ -815,6 +848,7 @@ class RhelFacts(AbstractFacts):
                     key, value = line.split()
                     self.results['security']["password"][key] = value
         except Exception as err:
+            self.err_msg['get_security_info'] = err.message
             LogManager.logger.error(err)
 
     def get_dns(self):
@@ -832,6 +866,7 @@ class RhelFacts(AbstractFacts):
                     for ns in data[1:]:
                         self.results['dns'].append(ns)
         except Exception as err:
+            self.err_msg['get_dns'] = err.message
             LogManager.logger.error(err)
 
     def get_login_def(self):
@@ -850,20 +885,25 @@ class RhelFacts(AbstractFacts):
                 if data[0] in targetField:
                     self.results['def_info'][data[0].lower()] = data[1]
         except Exception as err:
+            self.err_msg['get_login_def'] = err.message
             LogManager.logger.error(err)
 
     def get_uptime(self):
         try:
             out = self.ssh.run_command(
-                'uptime | awk -F , \'{n=split($1,day," ")} END {if(n>3){split($1,day," "); split($2,hour,":"); print day[3]" "hour[1]" "hour[2]}else{split($1,day," "); split(day[3],hour,":"); print 0" "hour[1]" "hour[2]}}\' | tr -d "\n"')
+                'uptime | awk -F , \'{n=split($1,day," "); split($2,hour,":")} END {if(n>3){print day[3]" "hour[1]" "hour[2]}else{split($1,day," "); split(day[3],hour,":"); print 0" "hour[1]" "hour[2]}}\' | tr -d "\n"')
 
             self.results['uptime'] = None
 
             if out:
                 day, hour, sec = out.split()
+                if sec == 'min':
+                    sec = hour
+                    hour = 0
                 timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
                 self.results['uptime'] = time.time() - timestamp
         except Exception as err:
+            self.err_msg['get_uptime'] = err.message
             LogManager.logger.error(err)
 
     def get_default_gateway(self, current_if):
@@ -878,6 +918,7 @@ class RhelFacts(AbstractFacts):
                         if words[words.index("dev") + 1] == current_if['device']:
                             return words[2]
         except Exception as err:
+            self.err_msg['get_default_gateway'] = err.message
             LogManager.logger.error(err)
 
     def get_ifcfg_script(self, current_if):
@@ -888,6 +929,7 @@ class RhelFacts(AbstractFacts):
             if file:
                 return self.ssh.run_command("cat %s" % file)
         except Exception as err:
+            self.err_msg['get_ifcfg_script'] = err.message
             LogManager.logger.error(err)
 
     def get_bonding(self):
@@ -902,23 +944,24 @@ class RhelFacts(AbstractFacts):
                     self.results['bonding'][bond] = cfg
                     # ToDo: Detail /proc/net/bonding/{bond}
         except Exception as err:
+            self.err_msg['get_bonding'] = err.message
             LogManager.logger.error(err)
 
     def make_system_summary(self):
-        if self.results['distribution_version']:
+        if 'distribution_version' in self.results:
             self.facts["system_summary"]["os"] = self.results['distribution_version']
-        if self.results['hostname']:
+        if 'hostname' in self.results:
             self.facts["system_summary"]["hostname"] = self.results['hostname']
-        if self.results['family']:
+        if 'family' in self.results:
             self.facts["system_summary"]["family"] = self.results['family']
 
-        if self.results['kernel']:
+        if 'kernel' in self.results:
             self.facts["system_summary"]["kernel"] = self.results['kernel']
-        if self.results['architecture']:
+        if 'architecture' in self.results:
             self.facts["system_summary"]["architecture"] = self.results['architecture']
-        if self.results['product_name']:
+        if 'product_name' in self.results:
             self.facts["system_summary"]["vendor"] = self.results['product_name']
-        if self.results['def_info']:
+        if 'def_info' in self.results:
             self.facts["system_summary"]["defInfo"] = self.results['def_info']
 
         self.make_cpu_summary()
@@ -927,19 +970,21 @@ class RhelFacts(AbstractFacts):
         self.make_network_summary()
 
     def make_cpu_summary(self):
-        if 'Socket(s)' in self.results['cpu']:
-            self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
-        if 'Model name' in self.results['cpu']:
-            self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
+        if 'cpu' in self.results:
+            if 'Socket(s)' in self.results['cpu']:
+                self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
+            if 'Model name' in self.results['cpu']:
+                self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
 
     def make_memory_summary(self):
-        if "memtotal_mb" in self.results['memory']:
-            self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
-        if "swaptotal_mb" in self.results['memory']:
-            self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+        if 'memory' in self.results:
+            if "memtotal_mb" in self.results['memory']:
+                self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+            if "swaptotal_mb" in self.results['memory']:
+                self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
 
     def make_disk_summary(self):
-        if self.results['partitions']:
+        if 'partitions' in self.results:
             self.facts["system_summary"]["diskInfo"] = self.results['partitions']
 
     def make_network_summary(self):

@@ -14,7 +14,9 @@ class AbstractFacts(ABC):
     def __init__(self, params, isSudo=True):
         self.ssh = SshBase(isSudo=isSudo)
         self.ssh.connect(params)
-        self.facts = {"system_summary": dict()};
+        self.facts = {
+            "system_summary": dict(),
+        }
 
     @abc.abstractmethod
     def get_hostname(self): pass

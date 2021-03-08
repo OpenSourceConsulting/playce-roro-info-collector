@@ -84,7 +84,7 @@ class SshBase(object):
 
         self._connected = True
 
-    @LogManager.logging
+    # @LogManager.logging
     def run_command(self, command):
         # option = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no '
 

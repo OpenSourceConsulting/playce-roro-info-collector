@@ -30,75 +30,52 @@ class DebianFacts(AbstractFacts):
             'distribution_version': release,
             'family': "Debian"
         }
+        self.err_msg = {}
 
     def execute(self):
-        try:
-            self.get_hostname()
-            self.get_cpu_facts()
-            self.get_memory_facts()
-            self.get_kernel()
-            self.get_bitmode()
-            self.get_dmi_facts()
-            self.get_interfaces_info()
-            self.get_vgs_facts()
-            self.get_users()
-            self.get_groups()
-            self.get_password_of_users()
-            self.get_ulimits()
-            self.get_crontabs()
-            # self.get_default_interfaces()
-            self.get_df()
-            # self.get_extra_partitions()
-            self.get_ps_lists()
-            self.get_kernel_parameters()
-            self.get_timezone()
-            self.get_route_table()
-            self.get_firewall()
-            self.get_listen_port()
+        self.get_hostname()
+        self.get_cpu_facts()
+        self.get_memory_facts()
+        self.get_kernel()
+        self.get_bitmode()
+        self.get_dmi_facts()
+        self.get_interfaces_info()
+        self.get_vgs_facts()
+        self.get_users()
+        self.get_groups()
+        self.get_password_of_users()
+        self.get_ulimits()
+        self.get_crontabs()
+        # self.get_default_interfaces()
+        self.get_df()
+        # self.get_extra_partitions()
+        self.get_ps_lists()
+        self.get_kernel_parameters()
+        self.get_timezone()
+        self.get_route_table()
+        self.get_firewall()
+        self.get_listen_port()
 
-            self.get_locale()
-            self.get_env()
-            self.get_fstab_info()
-            self.get_lvm_info()
-            self.get_daemon_list()
-            self.get_security_info()
-            self.get_login_def()
-            self.get_uptime()
-        except Exception as err:
-            LogManager.logger.error(err)
+        self.get_locale()
+        self.get_env()
+        self.get_fstab_info()
+        self.get_lvm_info()
+        self.get_daemon_list()
+        self.get_security_info()
+        self.get_login_def()
+        self.get_uptime()
+        self.make_system_summary()
+        self.facts['results'] = self.results
+        self.facts['messages'] = self.err_msg
+        self.ssh.close()
 
-        finally:
-            self.make_system_summary()
-            self.facts['results'] = self.results
-            self.ssh.close()
-            return self.results
 
-    def get_distribution_Linux(self):
-        """
-       Static hostname: roro-ubuntu-1604
-             Icon name: computer-vm
-               Chassis: vm
-            Machine ID: 62dc81efd5858a3e6a42721d5f1a59e6
-               Boot ID: 5717741e93f343a78a1e5d2de3a0b56b
-        Virtualization: kvm
-      Operating System: Ubuntu 16.04.6 LTS
-                Kernel: Linux 4.4.0-142-generic
-          Architecture: x86-64
-    :return:
-    """
-        out = self.ssh.run_command("hostnamectl")
-        for line in out.splitlines():
-            data = line.split(":")
-            if 'Operating System' in line:
-                self.results['distribution_version'] = data[1].strip()
-        return self.results['distribution_version'];
-
-    
     def get_hostname(self):
         try:
             out = self.ssh.run_command("uname -n")
             self.results['hostname'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_hostname'] = err.message
             LogManager.logger.error(err)
 
     
@@ -112,6 +89,7 @@ class DebianFacts(AbstractFacts):
                     key, value = line.split(":")
                     self.results['cpu'][key] = value.lstrip()
         except Exception as err:
+            self.err_msg['get_cpu_facts'] = err.message
             LogManager.logger.error(err)
     
     def get_memory_facts(self):
@@ -133,6 +111,7 @@ class DebianFacts(AbstractFacts):
                     swapfree_mb = int(data[0]) // 1024
                     self.results['memory']["swapfree_mb"] = swapfree_mb
         except Exception as err:
+            self.err_msg['get_memory_facts'] = err.message
             LogManager.logger.error(err)
     
     def get_kernel(self):
@@ -140,6 +119,7 @@ class DebianFacts(AbstractFacts):
             out = self.ssh.run_command("uname -r")
             self.results['kernel'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_kernel'] = err.message
             LogManager.logger.error(err)
     
     def get_bitmode(self):
@@ -147,6 +127,7 @@ class DebianFacts(AbstractFacts):
             out = self.ssh.run_command("uname -m")
             self.results['architecture'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_bitmode'] = err.message
             LogManager.logger.error(err)
     
     def get_df(self):
@@ -161,7 +142,9 @@ class DebianFacts(AbstractFacts):
                         pt = line.split()
                         self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
         except Exception as err:
+            self.err_msg['get_df'] = err.message
             LogManager.logger.error(err)
+
     def get_extra_partitions(self):
         """
         FSSTND BSD
@@ -203,6 +186,7 @@ class DebianFacts(AbstractFacts):
                         'p_free': vg[5]
                     }
         except Exception as err:
+            self.err_msg['get_vgs_facts'] = err.message
             LogManager.logger.error(err)
     
     def get_users(self):
@@ -232,6 +216,7 @@ class DebianFacts(AbstractFacts):
                                                           'profile': all_files
                                                           }
         except Exception as err:
+            self.err_msg['get_users'] = err.message
             LogManager.logger.error(err)
     
     def get_groups(self):
@@ -251,6 +236,7 @@ class DebianFacts(AbstractFacts):
                                                             'users': group[3].split(',')
                                                             }
         except Exception as err:
+            self.err_msg['get_groups'] = err.message
             LogManager.logger.error(err)
     
     def get_password_of_users(self):
@@ -264,6 +250,7 @@ class DebianFacts(AbstractFacts):
                     if user[1] != '*' and user[1] != '!!':
                         self.results['shadow'][user[0]] = user[1]
         except Exception as err:
+            self.err_msg['get_password_of_users'] = err.message
             LogManager.logger.error(err)
 
     def get_ulimits(self):
@@ -284,6 +271,7 @@ class DebianFacts(AbstractFacts):
                         value = line[line.index("("):len(line)].split()
                         self.results['ulimits'][user][key] = value[len(value) - 1]
         except Exception as err:
+            self.err_msg['get_ulimits'] = err.message
             LogManager.logger.error(err)
     
     def get_crontabs(self):
@@ -301,6 +289,7 @@ class DebianFacts(AbstractFacts):
                     out = self.ssh.run_command('cat ' + line)
                     self.results['crontabs'][line] = out
         except Exception as err:
+            self.err_msg['get_crontabs'] = err.message
             LogManager.logger.error(err)
 
     def get_default_interfaces(self):
@@ -321,6 +310,7 @@ class DebianFacts(AbstractFacts):
                             self.results['NICs']['v6']['gateway'] = words[1]
                             self.results['NICs']['v6']['interface'] = words[7]
         except Exception as err:
+            self.err_msg['get_default_interfaces'] = err.message
             LogManager.logger.error(err)
     
     def get_interfaces_info(self):
@@ -364,6 +354,7 @@ class DebianFacts(AbstractFacts):
                     else:
                         self.parse_unknown_line(words, current_if, ips)
         except Exception as err:
+            self.err_msg['get_interfaces_info'] = err.message
             LogManager.logger.error(err)
 
     def parse_interface_line(self, words):
@@ -440,7 +431,7 @@ class DebianFacts(AbstractFacts):
     
     def get_ps_lists(self):
         try:
-            out = self.ssh.run_command("ps -ef | grep -v ps")
+            out = self.ssh.run_command("ps -ef")
 
             self.results['processes'] = {}
             if out:
@@ -463,6 +454,7 @@ class DebianFacts(AbstractFacts):
                         self.results['processes'][data[7]] = dict(user=data[0], pid=data[1], cmd=data[7:])
                         # self.results['processes'].append(dict(uid = data[0], cmd = data[7:]))
         except Exception as err:
+            self.err_msg['get_ps_lists'] = err.message
             LogManager.logger.error(err)
     
     def get_kernel_parameters(self):
@@ -483,6 +475,7 @@ class DebianFacts(AbstractFacts):
                     else:
                         self.results['kernel_parameters'][key] = value.strip()
         except Exception as err:
+            self.err_msg['get_kernel_parameters'] = err.message
             LogManager.logger.error(err)
     
     def get_dmi_facts(self):
@@ -496,6 +489,7 @@ class DebianFacts(AbstractFacts):
             out = self.ssh.run_command("dmidecode -s processor-manufacturer")
             self.results['product_name'] = out.replace('\n', '')
         except Exception as err:
+            self.err_msg['get_dmi_facts'] = err.message
             LogManager.logger.error(err)
     
     def get_timezone(self):
@@ -507,6 +501,7 @@ class DebianFacts(AbstractFacts):
             out = self.ssh.run_command("timedatectl | grep 'Time zone'")
             self.results['timezone'] = out.split(':')[1].strip().replace('\n', '')
         except Exception as err:
+            self.err_msg['get_timezone'] = err.message
             LogManager.logger.error(err)
     
     def get_route_table(self):
@@ -529,6 +524,7 @@ class DebianFacts(AbstractFacts):
                         'iface': data[7],
                     })
         except Exception as err:
+            self.err_msg['get_route_table'] = err.message
             LogManager.logger.error(err)
     
     def get_listen_port(self):
@@ -610,6 +606,7 @@ class DebianFacts(AbstractFacts):
                             "name": p_name,
                         })
         except Exception as err:
+            self.err_msg['get_listen_port'] = err.message
             LogManager.logger.error(err)
     
     def get_firewall(self):
@@ -656,6 +653,7 @@ class DebianFacts(AbstractFacts):
                 else:
                     self.results['firewall']['rules'] = curent_chain
         except Exception as err:
+            self.err_msg['get_firewall'] = err.message
             LogManager.logger.error(err)
 
     def parse_chain_rule(self, cur_chain, line, type):
@@ -685,6 +683,7 @@ class DebianFacts(AbstractFacts):
                     key, value = line.split("=")
                     self.results['locale'][key] = value
         except Exception as err:
+            self.err_msg['get_locale'] = err.message
             LogManager.logger.error(err)
     
     def get_env(self):
@@ -698,6 +697,7 @@ class DebianFacts(AbstractFacts):
                     key, value = line.split("=")
                     self.results['env'][key] = value
         except Exception as err:
+            self.err_msg['get_env'] = err.message
             LogManager.logger.error(err)
     
     def get_lvm_info(self):
@@ -773,6 +773,7 @@ class DebianFacts(AbstractFacts):
                         value = line.replace("PV UUID", "").strip()
                         pv_info.update({"pv_uuid": value})
         except Exception as err:
+            self.err_msg['get_lvm_info'] = err.message
             LogManager.logger.error(err)
 
     def get_fs_info(self):
@@ -795,6 +796,7 @@ class DebianFacts(AbstractFacts):
                         dict(device=info[0], mount=info[1], type=info[2], option=info[4], dump=info[5])
                     )
         except Exception as err:
+            self.err_msg['get_fstab_info'] = err.message
             LogManager.logger.error(err)
     
     def get_daemon_list(self):
@@ -811,6 +813,7 @@ class DebianFacts(AbstractFacts):
                     if len(data) > 1:
                         self.results['daemon_list'][data[0]] = data[1]
         except Exception as err:
+            self.err_msg['get_daemon_list'] = err.message
             LogManager.logger.error(err)
     
     def get_security_info(self):
@@ -828,6 +831,7 @@ class DebianFacts(AbstractFacts):
                     key, value = line.split()
                     self.results['security']["password"][key] = value
         except Exception as err:
+            self.err_msg['get_security_info'] = err.message
             LogManager.logger.error(err)
     
     def get_dns(self):
@@ -845,6 +849,7 @@ class DebianFacts(AbstractFacts):
                     for ns in data[1:]:
                         self.results['dns'].append(ns)
         except Exception as err:
+            self.err_msg['get_dns'] = err.message
             LogManager.logger.error(err)
     
     def get_login_def(self):
@@ -863,6 +868,7 @@ class DebianFacts(AbstractFacts):
                 if data[0] in targetField:
                     self.results['def_info'][data[0].lower()] = data[1]
         except Exception as err:
+            self.err_msg['get_login_def'] = err.message
             LogManager.logger.error(err)
 
     def get_uptime(self):
@@ -873,9 +879,13 @@ class DebianFacts(AbstractFacts):
             self.results['uptime'] = None
             if out:
                 day, hour, sec = out.split()
+                if sec == 'min':
+                    sec = hour
+                    hour = 0
                 timestamp = (((int(day) * 24 + int(hour)) * 60 + int(sec)) * 60)
                 self.results['uptime'] = time.time() - timestamp
         except Exception as err:
+            self.err_msg['get_uptime'] = err.message
             LogManager.logger.error(err)
 
     def get_default_gateway(self, current_if):
@@ -890,6 +900,7 @@ class DebianFacts(AbstractFacts):
                         if words[words.index("dev") + 1] == current_if['device']:
                             return words[2]
         except Exception as err:
+            self.err_msg['get_default_gateway'] = err.message
             LogManager.logger.error(err)
 
     def get_ifcfg_script(self, current_if):
@@ -908,6 +919,7 @@ class DebianFacts(AbstractFacts):
             if file:
                 return self.ssh.run_command("cat %s" % file)
         except Exception as err:
+            self.err_msg['get_ifcfg_script'] = err.message
             LogManager.logger.error(err)
 
     def get_bonding(self):
@@ -922,23 +934,24 @@ class DebianFacts(AbstractFacts):
                     self.results['bonding'][bond] = cfg
                     # ToDo: Detail /proc/net/bonding/{bond}
         except Exception as err:
+            self.err_msg['get_bonding'] = err.message
             LogManager.logger.error(err)
 
     def make_system_summary(self):
-        if self.results['distribution_version']:
+        if 'distribution_version' in self.results:
             self.facts["system_summary"]["os"] = self.results['distribution_version']
-        if self.results['hostname']:
+        if 'hostname' in self.results:
             self.facts["system_summary"]["hostname"] = self.results['hostname']
-        if  self.results['family']:
+        if 'family' in self.results:
             self.facts["system_summary"]["family"] = self.results['family']
 
-        if self.results['kernel']:
+        if 'kernel' in self.results:
             self.facts["system_summary"]["kernel"] = self.results['kernel']
-        if self.results['architecture']:
+        if 'architecture' in self.results:
             self.facts["system_summary"]["architecture"] = self.results['architecture']
-        if self.results['product_name']:
+        if 'product_name' in self.results:
             self.facts["system_summary"]["vendor"] = self.results['product_name']
-        if self.results['def_info']:
+        if 'def_info' in self.results:
             self.facts["system_summary"]["defInfo"] = self.results['def_info']
 
         self.make_cpu_summary()
@@ -947,19 +960,21 @@ class DebianFacts(AbstractFacts):
         self.make_network_summary()
 
     def make_cpu_summary(self):
-        if 'Socket(s)' in self.results['cpu']:
-            self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
-        if 'Model name' in self.results['cpu']:
-            self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
+        if 'cpu' in self.results:
+            if 'Socket(s)' in self.results['cpu']:
+                self.facts["system_summary"]["cores"] = self.results['cpu']['Socket(s)']
+            if 'Model name' in self.results['cpu']:
+                self.facts["system_summary"]["cpu"] = self.results['cpu']['Model name']
 
     def make_memory_summary(self):
-        if "memtotal_mb" in self.results['memory']:
-            self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
-        if "swaptotal_mb" in self.results['memory']:
-            self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
+        if 'memory' in self.results:
+            if "memtotal_mb" in self.results['memory']:
+                self.facts["system_summary"]["memory"] = self.results['memory']["memtotal_mb"]
+            if "swaptotal_mb" in self.results['memory']:
+                self.facts["system_summary"]["swap"] = self.results['memory']["swaptotal_mb"]
 
     def make_disk_summary(self):
-        if self.results['partitions']:
+        if 'partitions' in self.results:
             self.facts["system_summary"]["diskInfo"] = self.results['partitions']
 
     def make_network_summary(self):
