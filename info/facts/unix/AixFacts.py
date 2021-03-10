@@ -62,10 +62,11 @@ class AixFacts(AbstractFacts):
         self.get_firewall()
         self.get_login_def()
         self.get_uptime()
+        self.get_hosts()
 
         self.make_system_summary()
         self.facts["results"] = self.results
-        self.facts['err_msg'] = self.err_msg
+        self.facts['results']['err_msg'] = self.err_msg
         self.ssh.close()
         return self.results
 
@@ -725,6 +726,7 @@ class AixFacts(AbstractFacts):
             locale = self.ssh.run_command("locale")
 
             self.results['locale'] = dict()
+            raise Exception("Error message Test in get_security_info")
             if locale:
 
                 for line in locale.splitlines():
@@ -876,9 +878,9 @@ class AixFacts(AbstractFacts):
 
             # Login policies
             out = self.ssh.run_command("cat /etc/security/login.cfg")
+            login = {}
+            self.results['security']['login'] = login
             if out:
-                login = {}
-                self.results['security']['login'] = login
                 for line in out.splitlines():
 
                     regex = re.compile('^\*')
@@ -897,9 +899,10 @@ class AixFacts(AbstractFacts):
 
             # Password policies
             out = self.ssh.run_command("cat /etc/security/user")
+            password = {}
+            self.results['security']['password'] = password
+            raise Exception("Error message Test in get_security_info")
             if out:
-                password = {}
-                self.results['security']['password'] = password
                 for line in out.splitlines():
 
                     regex = re.compile('^\*')
@@ -987,6 +990,26 @@ class AixFacts(AbstractFacts):
         if out:
             data = out.split(":", 1)
             return data[1].strip().replace(r'\n', '')
+
+    def get_hosts(self):
+        try:
+            hostsPath = '/etc/hosts'
+            contents = self.ssh.run_command('cat %s' % hostsPath)
+            self.results['hosts'] = {}
+            if contents:
+                self.results['hosts']['contents'] = contents
+                mappings = {}
+                for line in contents.splitlines():
+                    if re.match('^$|^#', line):
+                        continue
+                    if '#' in line:
+                        line = line[:line.index('#')]
+                    data = line.split()
+                    mappings[data[0]] = data[1:]
+                    self.results['hosts']['mappings'] = mappings
+        except Exception as err:
+            self.err_msg['get_hosts'] = err.message
+            LogManager.logger.error(err)
 
     def make_system_summary(self):
         if 'distribution_version' in self.results:

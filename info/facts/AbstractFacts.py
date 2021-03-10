@@ -111,6 +111,9 @@ class AbstractFacts(ABC):
     @abc.abstractmethod
     def get_uptime(self): pass
 
+    @abc.abstractmethod
+    def get_hosts(self): pass
+
     def get_results(self):
         r = json.dumps(self.facts, indent=2)
         print r

@@ -29,7 +29,6 @@ class RhelFacts(AbstractFacts):
         self.results = {
             'distribution_version': release,
             'family': "Redhat",
-            'task_result' : {}
         }
         self.err_msg = {}
 
@@ -67,10 +66,11 @@ class RhelFacts(AbstractFacts):
         # self.get_bonding()
         self.get_login_def()
         self.get_uptime()
+        self.get_hosts()
 
         self.make_system_summary()
         self.facts['results'] = self.results
-        self.facts['err_msg'] = self.err_msg
+        self.facts['results']['err_msg'] = self.err_msg
         self.ssh.close()
 
 
@@ -679,8 +679,8 @@ class RhelFacts(AbstractFacts):
             locale = self.ssh.run_command("locale")
 
             self.results['locale'] = dict()
+            raise Exception("Error message Test in get_locale")
             if locale:
-
                 for line in locale.splitlines():
                     key, value = line.split("=")
                     self.results['locale'][key] = re.sub('"', '', value)
@@ -838,6 +838,7 @@ class RhelFacts(AbstractFacts):
             out = self.ssh.run_command("cat /etc/login.defs")
 
             self.results['security'] = {"password": dict()}
+            raise Exception("Error message Test in get_security_info")
             if out:
                 for line in out.splitlines():
 
@@ -945,6 +946,26 @@ class RhelFacts(AbstractFacts):
                     # ToDo: Detail /proc/net/bonding/{bond}
         except Exception as err:
             self.err_msg['get_bonding'] = err.message
+            LogManager.logger.error(err)
+
+    def get_hosts(self):
+        try:
+            hostsPath = '/etc/hosts'
+            contents = self.ssh.run_command('cat %s' % hostsPath)
+            self.results['hosts'] = {}
+            if contents:
+                self.results['hosts']['contents'] = contents
+                mappings = {}
+                for line in contents.splitlines():
+                    if re.match('^$|^#', line):
+                        continue
+                    if '#' in line:
+                        line = line[:line.index('#')]
+                    data = line.split()
+                    mappings[data[0]] = data[1:]
+                    self.results['hosts']['mappings'] = mappings
+        except Exception as err:
+            self.err_msg['get_hosts'] = err.message
             LogManager.logger.error(err)
 
     def make_system_summary(self):
