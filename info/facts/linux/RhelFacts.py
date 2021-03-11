@@ -24,12 +24,13 @@ ANSI_RE = [
 
 class RhelFacts(AbstractFacts):
 
-    def __init__(self, params, release):
+    def __init__(self, params, release, version):
         AbstractFacts.__init__(self, params)
         self.results = {
             'distribution_version': release,
             'family': "Redhat",
         }
+        self.version = version
         self.err_msg = {}
 
     def execute(self):
@@ -140,10 +141,15 @@ class RhelFacts(AbstractFacts):
             self.results['partitions'] = {}
             if out:
                 regex = re.compile(r'^/dev/', re.IGNORECASE)
+                pt_combine = []
                 for line in out.splitlines():
-                    if regex.match(line):
-                        pt = line.split()
-                        self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
+                    if regex.match(line) or len(pt_combine) > 0:
+                        pt_combine += line.split()
+                        if len(pt_combine) == 7:
+                            self.results['partitions'][pt_combine[6]] = dict(device=pt_combine[0], fstype=pt_combine[1], size=pt_combine[2], free=pt_combine[4])
+                            pt_combine = []
+                        else:
+                            continue
         except Exception as err:
             self.err_msg['get_df'] = err.message
             LogManager.logger.error(err)
@@ -549,77 +555,80 @@ class RhelFacts(AbstractFacts):
                 'established': {}
             }
             out = self.ssh.run_command("netstat -nap | grep LISTEN")
+
             if out:
                 listen_port = []
                 self.results['port_list']['listen'] = listen_port
                 for line in out.splitlines():
                     data = line.split()
+                    if data:
+                        if data[0] == 'unix':
+                            continue
+                        l_addr, l_port = data[3].rsplit(':', 1)
+                        f_addr, f_port = data[4].rsplit(':', 1)
+                        if data[6] == '-':
+                            pid = p_name = "-"
+                        else:
+                            pid, p_name = data[6].rsplit('/', 1)
 
-                    if data[0] == 'unix':
-                        continue
-
-                    l_addr, l_port = data[3].rsplit(':', 1)
-                    f_addr, f_port = data[4].rsplit(':', 1)
-                    pid, p_name = data[6].rsplit('/', 1)
-
-                    if l_addr.count(':') < 4:
-                        port_info = {
-                            "protocol": data[0],
-                            "bind_addr": l_addr,
-                            "port": l_port,
-                            "pid": pid,
-                            "name": p_name,
-                        }
-                        listen_port.append(port_info)
+                        if l_addr.count(':') < 4:
+                            port_info = {
+                                "protocol": data[0],
+                                "bind_addr": l_addr,
+                                "port": l_port,
+                                "pid": pid,
+                                "name": p_name,
+                            }
+                            listen_port.append(port_info)
 
             out = self.ssh.run_command("netstat -nap | tail -n+3 | grep ESTABLISHED")
 
+            any_to_local = []
+            local_to_any = []
+            estab_port = {
+                'any_to_local': any_to_local,
+                'local_to_any': local_to_any
+            }
+            self.results['port_list']['established'] = estab_port
             if out:
-                any_to_local = []
-                local_to_any = []
-                estab_port = {
-                    'any_to_local': any_to_local,
-                    'local_to_any': local_to_any
-                }
-                self.results['port_list']['established'] = estab_port
                 for line in out.splitlines():
                     data = line.split()
+                    if data:
+                        if data[0] == 'unix':
+                            continue
 
-                    if data[0] == 'unix':
-                        continue
+                        l_addr, l_port = data[3].rsplit(':', 1)
+                        f_addr, f_port = data[4].rsplit(':', 1)
+                        if data[6] == '-':
+                            pid = p_name = "-"
+                        else:
+                            pid, p_name = data[6].rsplit('/', 1)
 
-                    l_addr, l_port = data[3].rsplit(':', 1)
-                    f_addr, f_port = data[4].rsplit(':', 1)
-                    if data[6] == '-':
-                        pid = p_name = "-"
-                    else:
-                        pid, p_name = data[6].rsplit('/', 1)
+                        if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
+                            continue
 
-                    if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
-                        continue
+                        lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
 
-                    lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
-
-                    if lport_info:
-                        any_to_local.append({
-                            "protocol": data[0],
-                            "faddr": f_addr,
-                            "fport": f_port,
-                            "laddr": l_addr,
-                            "lport": l_port,
-                            "pid": pid,
-                            "name": p_name,
-                        })
-                    else:
-                        local_to_any.append({
-                            "protocol": data[0],
-                            "faddr": f_addr,
-                            "fport": f_port,
-                            "laddr": l_addr,
-                            "lport": l_port,
-                            "pid": pid,
-                            "name": p_name,
-                        })
+                        if lport_info:
+                            any_to_local.append({
+                                "protocol": data[0],
+                                "faddr": f_addr,
+                                "fport": f_port,
+                                "laddr": l_addr,
+                                "lport": l_port,
+                                "pid": pid,
+                                "name": p_name,
+                            })
+                        else:
+                            local_to_any.append({
+                                "protocol": data[0],
+                                "faddr": f_addr,
+                                "fport": f_port,
+                                "laddr": l_addr,
+                                "lport": l_port,
+                                "pid": pid,
+                                "name": p_name,
+                            })
         except Exception as err:
             self.err_msg['get_listen_port'] = err.message
             LogManager.logger.error(err)
@@ -679,7 +688,6 @@ class RhelFacts(AbstractFacts):
             locale = self.ssh.run_command("locale")
 
             self.results['locale'] = dict()
-            raise Exception("Error message Test in get_locale")
             if locale:
                 for line in locale.splitlines():
                     key, value = line.split("=")
@@ -696,8 +704,9 @@ class RhelFacts(AbstractFacts):
             if env:
 
                 for line in env.splitlines():
-                    key, value = line.split("=")
-                    self.results['env'][key] = value
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        self.results['env'][key] = value
         except Exception as err:
             self.err_msg['get_env'] = err.message
             LogManager.logger.error(err)
@@ -803,32 +812,32 @@ class RhelFacts(AbstractFacts):
     def get_daemon_list(self):
         try:
             self.results['daemon_list'] = {}
-            version = self.ssh.run_command('cat /etc/*-release | grep VERSION_ID | cut -f2 -d "="')
-            version = float(version.replace('\"', ''))
-            if version >= 7:
-                cmd = "systemctl list-unit-files"
-                out = self.ssh.run_command(cmd)
+            if int(self.version) >= 7:
+                cmd = "systemctl list-units --type service | tail -n+2 | head -n-6"
+                svc_list = self.ssh.run_command(cmd)
+                if svc_list:
+                    for svc_info in svc_list.splitlines():
+                        if svc_info:
+                            detail = svc_info.split()
+                            self.results['daemon_list'][detail[0]] = {
+                                "load": detail[1],
+                                "active": detail[2],
+                                "sub": detail[3],
+                                "desc": " ".join(detail[4:])
+                            }
+            else:
+                cmd = "chkconfig --list"
+                svc_list = self.ssh.run_command(cmd)
+                if svc_list:
+                   for svc in svc_list.splitlines():
+                       levels = []
+                       infos = svc.split()
+                       for info in infos[1:]:
+                           detail = info.split(":")
+                           levels.append(dict(level=detail[0], active=detail[1]))
 
-                if out:
-                    for line in out.splitlines():
-                        if 'STATE' in line:
-                            continue
+                       self.results['daemon_list'][infos[0]] = levels
 
-                        data = line.split()
-                        if len(data) > 1:
-                            self.results['daemon_list'][data[0]] = data[1]
-            elif version < 7:
-                cmd = "service --status-all"
-                out = self.ssh.run_command(cmd)
-                if out:
-                    for m in re.finditer('(\[+\s+\S+\s+\])+\s+(\S+)', out):
-
-                        if '+' in m.group(1):
-                            self.results['daemon_list'][m.group(2)] = "running"
-                        elif '-' in m.group(1):
-                            self.results['daemon_list'][m.group(2)] = "stop"
-                        else:
-                            self.results['daemon_list'][m.group(2)] = "unknown"
         except Exception as err:
             self.err_msg['get_daemon_list'] = err.message
             LogManager.logger.error(err)

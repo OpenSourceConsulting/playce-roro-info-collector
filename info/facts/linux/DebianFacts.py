@@ -24,12 +24,13 @@ ANSI_RE = [
 
 class DebianFacts(AbstractFacts):
 
-    def __init__(self, params, release):
+    def __init__(self, params, release, version):
         AbstractFacts.__init__(self, params)
         self.results = {
             'distribution_version': release,
             'family': "Debian"
         }
+        self.version = version
         self.err_msg = {}
 
     def execute(self):
@@ -131,7 +132,7 @@ class DebianFacts(AbstractFacts):
         except Exception as err:
             self.err_msg['get_bitmode'] = err.message
             LogManager.logger.error(err)
-    
+
     def get_df(self):
         try:
             out = self.ssh.run_command("df -Tm")
@@ -139,10 +140,15 @@ class DebianFacts(AbstractFacts):
             self.results['partitions'] = {}
             if out:
                 regex = re.compile(r'^/dev/', re.IGNORECASE)
+                pt_combine = []
                 for line in out.splitlines():
-                    if regex.match(line):
-                        pt = line.split()
-                        self.results['partitions'][pt[6]] = dict(device=pt[0], fstype=pt[1], size=pt[2], free=pt[4])
+                    if regex.match(line) or len(pt_combine) > 0:
+                        pt_combine += line.split()
+                        if len(pt_combine) == 7:
+                            self.results['partitions'][pt_combine[6]] = dict(device=pt_combine[0], fstype=pt_combine[1], size=pt_combine[2], free=pt_combine[4])
+                            pt_combine = []
+                        else:
+                            continue
         except Exception as err:
             self.err_msg['get_df'] = err.message
             LogManager.logger.error(err)
@@ -803,17 +809,19 @@ class DebianFacts(AbstractFacts):
     
     def get_daemon_list(self):
         try:
-            out = self.ssh.run_command("systemctl list-unit-files")
-
             self.results['daemon_list'] = {}
-            if out:
-                for line in out.splitlines():
-                    if 'STATE' in line:
-                        continue
-
-                    data = line.split()
-                    if len(data) > 1:
-                        self.results['daemon_list'][data[0]] = data[1]
+            cmd = "systemctl list-units --type service | tail -n+2 | head -n-6"
+            svc_list = self.ssh.run_command(cmd)
+            if svc_list:
+                for svc_info in svc_list.splitlines():
+                    if svc_info:
+                        detail = svc_info.split()
+                        self.results['daemon_list'][detail[0]] = {
+                            "load": detail[1],
+                            "active": detail[2],
+                            "sub": detail[3],
+                            "desc": " ".join(detail[4:])
+                        }
         except Exception as err:
             self.err_msg['get_daemon_list'] = err.message
             LogManager.logger.error(err)
