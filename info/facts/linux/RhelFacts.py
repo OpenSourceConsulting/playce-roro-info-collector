@@ -564,20 +564,21 @@ class RhelFacts(AbstractFacts):
                     if data:
                         if data[0] == 'unix':
                             continue
-                        l_addr, l_port = data[3].rsplit(':', 1)
-                        f_addr, f_port = data[4].rsplit(':', 1)
+                        source = data[3].rsplit(':', 1)
+                        # f_addr, f_port = data[4].rsplit(':', 1)
                         if data[6] == '-':
-                            pid = p_name = "-"
+                            ps = ["-", "-"]
                         else:
-                            pid, p_name = data[6].rsplit('/', 1)
+                            ps = data[6].rsplit('/', 1)
 
-                        if l_addr.count(':') < 4:
+
+                        if source[0].count(':') < 4:
                             port_info = {
                                 "protocol": data[0],
-                                "bind_addr": l_addr,
-                                "port": l_port,
-                                "pid": pid,
-                                "name": p_name,
+                                "bind_addr": source[0],
+                                "port": source[1],
+                                "pid": ps[0],
+                                "name": ps[1],
                             }
                             listen_port.append(port_info)
 
@@ -597,37 +598,37 @@ class RhelFacts(AbstractFacts):
                         if data[0] == 'unix':
                             continue
 
-                        l_addr, l_port = data[3].rsplit(':', 1)
-                        f_addr, f_port = data[4].rsplit(':', 1)
+                        source = data[3].rsplit(':', 1)
+                        target = data[4].rsplit(':', 1)
                         if data[6] == '-':
-                            pid = p_name = "-"
+                            ps = ["-", "-"]
                         else:
-                            pid, p_name = data[6].rsplit('/', 1)
+                            ps = data[6].rsplit('/', 1)
 
-                        if l_addr == '127.0.0.1' and f_addr == '127.0.0.1':
+                        if source[0] == '127.0.0.1' and target[0] == '127.0.0.1':
                             continue
 
-                        lport_info = next((lport for lport in listen_port if lport['port'] == l_port), None)
+                        lport_info = next((lport for lport in listen_port if lport['port'] == source[1]), None)
 
                         if lport_info:
                             any_to_local.append({
                                 "protocol": data[0],
-                                "faddr": f_addr,
-                                "fport": f_port,
-                                "laddr": l_addr,
-                                "lport": l_port,
-                                "pid": pid,
-                                "name": p_name,
+                                "faddr": target[0],
+                                "fport": target[1],
+                                "laddr": source[0],
+                                "lport": source[1],
+                                "pid": ps[0],
+                                "name": ps[1],
                             })
                         else:
                             local_to_any.append({
                                 "protocol": data[0],
-                                "faddr": f_addr,
-                                "fport": f_port,
-                                "laddr": l_addr,
-                                "lport": l_port,
-                                "pid": pid,
-                                "name": p_name,
+                                "faddr": target[0],
+                                "fport": target[1],
+                                "laddr": source[0],
+                                "lport": source[1],
+                                "pid": ps[0],
+                                "name": ps[1],
                             })
         except Exception as err:
             self.err_msg['get_listen_port'] = err.message
@@ -699,14 +700,15 @@ class RhelFacts(AbstractFacts):
     def get_env(self):
         try:
             self.results['env'] = dict()
-            env = self.ssh.run_command("env")
+            env = self.ssh.run_command('env')
 
             if env:
-
                 for line in env.splitlines():
                     if "=" in line:
                         key, value = line.split("=", 1)
                         self.results['env'][key] = value
+                    else:
+                        self.results['env'][key] = "{} {}".format(self.results['env'][key], line)
         except Exception as err:
             self.err_msg['get_env'] = err.message
             LogManager.logger.error(err)
