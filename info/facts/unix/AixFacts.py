@@ -726,7 +726,6 @@ class AixFacts(AbstractFacts):
             locale = self.ssh.run_command("locale")
 
             self.results['locale'] = dict()
-            raise Exception("Error message Test in get_security_info")
             if locale:
 
                 for line in locale.splitlines():
@@ -901,7 +900,6 @@ class AixFacts(AbstractFacts):
             out = self.ssh.run_command("cat /etc/security/user")
             password = {}
             self.results['security']['password'] = password
-            raise Exception("Error message Test in get_security_info")
             if out:
                 for line in out.splitlines():
 
