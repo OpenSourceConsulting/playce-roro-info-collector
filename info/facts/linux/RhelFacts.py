@@ -849,7 +849,6 @@ class RhelFacts(AbstractFacts):
             out = self.ssh.run_command("cat /etc/login.defs")
 
             self.results['security'] = {"password": dict()}
-            raise Exception("Error message Test in get_security_info")
             if out:
                 for line in out.splitlines():
 

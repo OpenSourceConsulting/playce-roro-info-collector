@@ -84,14 +84,14 @@ class SshBase(object):
 
         self._connected = True
 
-    # @LogManager.logging
+    @LogManager.logging
     def run_command(self, command):
         # option = '-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no '
 
         if self.isSudo:
-            stdin, stdout, stderr = self.ssh.exec_command("/usr/bin/sudo " + command)
+            stdin, stdout, stderr = self.ssh.exec_command("/usr/bin/sudo " + command, timeout=60)
         else:
-            stdin, stdout, stderr = self.ssh.exec_command(command)
+            stdin, stdout, stderr = self.ssh.exec_command(command, timeout=60)
 
         try:
             all_out = ''
