@@ -27,7 +27,7 @@ class RhelFacts(AbstractFacts):
     def __init__(self, params, release, version):
         AbstractFacts.__init__(self, params)
         self.results = {
-            'distribution_version': release,
+            'distribution_version': self.re_str.getString(release),
             'family': "Redhat",
         }
         self.version = version
@@ -136,20 +136,21 @@ class RhelFacts(AbstractFacts):
 
     def get_df(self):
         try:
-            out = self.ssh.run_command("df -Tm")
+            ignore_partition = ['tmpfs']
+            out = self.ssh.run_command("df -Tm | tail -n+2")
 
             self.results['partitions'] = {}
             if out:
-                regex = re.compile(r'^/dev/', re.IGNORECASE)
+                # regex = re.compile(r'^/dev/', re.IGNORECASE)
                 pt_combine = []
                 for line in out.splitlines():
-                    if regex.match(line) or len(pt_combine) > 0:
-                        pt_combine += line.split()
-                        if len(pt_combine) == 7:
+                    pt_combine += line.split()
+                    if len(pt_combine) == 7:
+                        if not pt_combine[0] in ignore_partition:
                             self.results['partitions'][pt_combine[6]] = dict(device=pt_combine[0], fstype=pt_combine[1], size=pt_combine[2], free=pt_combine[4])
-                            pt_combine = []
-                        else:
-                            continue
+                        pt_combine = []
+                    else:
+                        continue
         except Exception as err:
             self.err_msg['get_df'] = err.message
             LogManager.logger.error(err)
@@ -977,6 +978,8 @@ class RhelFacts(AbstractFacts):
         except Exception as err:
             self.err_msg['get_hosts'] = err.message
             LogManager.logger.error(err)
+
+
 
     def make_system_summary(self):
         if 'distribution_version' in self.results:

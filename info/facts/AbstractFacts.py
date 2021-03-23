@@ -2,6 +2,7 @@ import simplejson as json
 import abc
 
 from info.facts.ssh.sshBase import *
+from info.facts.utils.RegxUtils import RegxUtils
 
 if sys.version_info >= (3, 4):
     ABC = abc.ABC
@@ -17,6 +18,7 @@ class AbstractFacts(ABC):
         self.facts = {
             "system_summary": dict(),
         }
+        self.re_str = RegxUtils()
 
     @abc.abstractmethod
     def get_hostname(self): pass
